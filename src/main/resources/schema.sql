@@ -89,7 +89,6 @@ CREATE TABLE accounts (
                           account_type_id INTEGER NOT NULL,
                           account_status_id INTEGER NOT NULL,
                           created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                          currency VARCHAR(10) NOT NULL,
                           settled_cash NUMERIC(19,4) DEFAULT 0.00,
 
                           CONSTRAINT fk_account_user
