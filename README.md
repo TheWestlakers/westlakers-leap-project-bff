@@ -1,5 +1,4 @@
 # westlakers-leap-project-bff
-
 ## Local development setup
 
 The committed `src/main/resources/application-dev.properties` file no longer stores usernames or passwords.
@@ -31,3 +30,4 @@ Required keys:
 ```bat
 mvnw.cmd spring-boot:run
 ```
+
