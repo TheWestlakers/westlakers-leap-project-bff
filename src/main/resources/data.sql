@@ -1,35 +1,36 @@
-INSERT INTO roles (role_name)
-VALUES
-    ('Admin'),
-    ('User')
-ON CONFLICT (role_name) DO NOTHING;
+INSERT INTO roles (role_id, role_name) VALUES (1, 'ADMIN');
+INSERT INTO roles (role_id, role_name) VALUES (2, 'USER');
 
-INSERT INTO user_status (status_name, description)
-VALUES
-    ('Active', 'Active User'),
-    ('Inactive', 'Inactive User')
-ON CONFLICT (status_name) DO NOTHING;
+-- Insert User Status (explicit IDs to ensure consistency)
+INSERT INTO user_status (user_status_id, status_name, description) VALUES (1, 'ONLINE', 'User account is active');
+INSERT INTO user_status (user_status_id, status_name, description) VALUES (2, 'OFFLINE', 'User account is inactive');
 
-INSERT INTO account_status (status_name, description)
-VALUES
-    ('Active', 'Active Account'),
-    ('Suspended', 'Suspended Account'),
-    ('Closed', 'Closed Account')
-ON CONFLICT (status_name) DO NOTHING;
+-- Insert Account Status (explicit IDs to ensure consistency)
+INSERT INTO account_status (account_status_id, status_name, description) VALUES (1, 'OPEN', 'Account is open and active');
+INSERT INTO account_status (account_status_id, status_name, description) VALUES (2, 'CLOSED', 'Account is closed');
+INSERT INTO account_status (account_status_id, status_name, description) VALUES (3, 'FROZEN', 'Account is frozen');
 
-INSERT INTO account_types (type_name)
-VALUES
-    ('Brokerage'),
-    ('Retirement'),
-    ('Cash')
-ON CONFLICT (type_name) DO NOTHING;
+-- Insert Account Types (explicit IDs to ensure consistency)
+INSERT INTO account_types (account_type_id, type_name) VALUES (1, 'INDIVIDUAL');
+INSERT INTO account_types (account_type_id, type_name) VALUES (2, 'JOINT');
+INSERT INTO account_types (account_type_id, type_name) VALUES (3, 'RETIREMENT');
+INSERT INTO account_types (account_type_id, type_name) VALUES (4, 'CORPORATE');
 
-INSERT INTO order_status (status_name, description)
-VALUES
-    ('Pending', 'Pending execution'),
-    ('Executed', 'Order has been executed'),
-    ('Cancelled', 'Order has been cancelled')
-ON CONFLICT (status_name) DO NOTHING;
+-- Insert Order Status (explicit IDs to ensure consistency)
+INSERT INTO order_status (order_status_id, status_name, description) VALUES (1, 'PENDING', 'Order pending execution');
+INSERT INTO order_status (order_status_id, status_name, description) VALUES (2, 'EXECUTED', 'Order fully executed');
+INSERT INTO order_status (order_status_id, status_name, description) VALUES (3, 'CANCELLED', 'Order cancelled');
+INSERT INTO order_status (order_status_id, status_name, description) VALUES (4, 'REJECTED', 'Order rejected');
+
+-- Insert Markets (explicit IDs to ensure consistency)
+INSERT INTO markets (market_id, market_name, market_code, timezone, open_time, close_time) 
+VALUES (1, 'New York Stock Exchange', 'NYSE', 'America/New_York', '09:30:00', '16:00:00');
+INSERT INTO markets (market_id, market_name, market_code, timezone, open_time, close_time) 
+VALUES (2, 'NASDAQ', 'NASDAQ', 'America/New_York', '09:30:00', '16:00:00');
+INSERT INTO markets (market_id, market_name, market_code, timezone, open_time, close_time) 
+VALUES (3, 'London Stock Exchange', 'LSE', 'Europe/London', '08:00:00', '16:30:00');
+INSERT INTO markets (market_id, market_name, market_code, timezone, open_time, close_time) 
+VALUES (4, 'Tokyo Stock Exchange', 'TSE', 'Asia/Tokyo', '09:00:00', '15:00:00');
 
 
 
