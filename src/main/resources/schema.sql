@@ -1,46 +1,32 @@
-DROP TABLE IF EXISTS holdings CASCADE;
-DROP TABLE IF EXISTS transactions CASCADE;
-DROP TABLE IF EXISTS orders CASCADE;
-DROP TABLE IF EXISTS instruments CASCADE;
-DROP TABLE IF EXISTS accounts CASCADE;
-DROP TABLE IF EXISTS user_credentials CASCADE;
-DROP TABLE IF EXISTS users CASCADE;
-DROP TABLE IF EXISTS markets CASCADE;
-DROP TABLE IF EXISTS order_status CASCADE;
-DROP TABLE IF EXISTS account_types CASCADE;
-DROP TABLE IF EXISTS account_status CASCADE;
-DROP TABLE IF EXISTS user_status CASCADE;
-DROP TABLE IF EXISTS roles CASCADE;
-
-CREATE TABLE roles (
+CREATE TABLE IF NOT EXISTS roles (
                        role_id SERIAL PRIMARY KEY,
                        role_name VARCHAR(50) NOT NULL UNIQUE
 );
 
-CREATE TABLE user_status (
+CREATE TABLE IF NOT EXISTS user_status (
                              user_status_id SERIAL PRIMARY KEY,
                              status_name VARCHAR(50) NOT NULL UNIQUE,
                              description VARCHAR(255)
 );
 
-CREATE TABLE account_status (
+CREATE TABLE IF NOT EXISTS account_status (
                                 account_status_id SERIAL PRIMARY KEY,
                                 status_name VARCHAR(50) NOT NULL UNIQUE,
                                 description VARCHAR(255)
 );
 
-CREATE TABLE account_types (
+CREATE TABLE IF NOT EXISTS account_types (
                                account_type_id SERIAL PRIMARY KEY,
                                type_name VARCHAR(50) NOT NULL UNIQUE
 );
 
-CREATE TABLE order_status (
+CREATE TABLE IF NOT EXISTS order_status (
                               order_status_id SERIAL PRIMARY KEY,
                               status_name VARCHAR(50) NOT NULL UNIQUE,
                               description VARCHAR(255)
 );
 
-CREATE TABLE markets (
+CREATE TABLE IF NOT EXISTS markets (
                          market_id SERIAL PRIMARY KEY,
                          market_name VARCHAR(100) NOT NULL,
                          market_code VARCHAR(20) NOT NULL UNIQUE,
@@ -49,7 +35,7 @@ CREATE TABLE markets (
                          close_time TIME
 );
 
-CREATE TABLE users (
+CREATE TABLE IF NOT EXISTS users (
                        user_id SERIAL PRIMARY KEY,
                        date_of_birth DATE NOT NULL,
                        first_name VARCHAR(50) NOT NULL,
@@ -64,7 +50,7 @@ CREATE TABLE users (
                                REFERENCES user_status(user_status_id)
 );
 
-CREATE TABLE user_credentials (
+CREATE TABLE IF NOT EXISTS user_credentials (
                                   credential_id SERIAL PRIMARY KEY,
                                   user_id INTEGER NOT NULL,
                                   role_id INTEGER NOT NULL,
@@ -83,7 +69,7 @@ CREATE TABLE user_credentials (
                                           REFERENCES roles(role_id)
 );
 
-CREATE TABLE accounts (
+CREATE TABLE IF NOT EXISTS accounts (
                           account_id SERIAL PRIMARY KEY,
                           user_id INTEGER NOT NULL,
                           account_type_id INTEGER NOT NULL,
@@ -104,7 +90,7 @@ CREATE TABLE accounts (
                                   REFERENCES account_types(account_type_id)
 );
 
-CREATE TABLE instruments (
+CREATE TABLE IF NOT EXISTS instruments (
                              instrument_id SERIAL PRIMARY KEY,
                              market_id INTEGER NOT NULL,
                              ticker VARCHAR(20) NOT NULL UNIQUE,
@@ -117,7 +103,7 @@ CREATE TABLE instruments (
                                      REFERENCES markets(market_id)
 );
 
-CREATE TABLE orders (
+CREATE TABLE IF NOT EXISTS orders (
                         order_id SERIAL PRIMARY KEY,
                         account_id INTEGER NOT NULL,
                         instrument_id INTEGER NOT NULL,
@@ -126,7 +112,8 @@ CREATE TABLE orders (
                         limit_price NUMERIC(19,4),
                         quantity DECIMAL(19,4) NOT NULL,
                         status INTEGER NOT NULL,
-                        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                        placed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                        executed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
 
                         CONSTRAINT fk_order_account
                             FOREIGN KEY (account_id)
@@ -141,30 +128,8 @@ CREATE TABLE orders (
                                 REFERENCES order_status(order_status_id)
 );
 
-CREATE TABLE transactions (
-                              transaction_id SERIAL PRIMARY KEY,
-                              order_id INTEGER NOT NULL,
-                              account_id INTEGER NOT NULL,
-                              instrument_id INTEGER NOT NULL,
-                              txn_type VARCHAR(20) NOT NULL,
-                              quantity DECIMAL(19,4) NOT NULL,
-                              price NUMERIC(19,4) NOT NULL,
-                              txn_date TIMESTAMP NOT NULL,
 
-                              CONSTRAINT fk_transaction_order
-                                  FOREIGN KEY (order_id)
-                                      REFERENCES orders(order_id),
-
-                              CONSTRAINT fk_transaction_account
-                                  FOREIGN KEY (account_id)
-                                      REFERENCES accounts(account_id),
-
-                              CONSTRAINT fk_transaction_instrument
-                                  FOREIGN KEY (instrument_id)
-                                      REFERENCES instruments(instrument_id)
-);
-
-CREATE TABLE holdings (
+CREATE TABLE IF NOT EXISTS holdings (
                           holding_id SERIAL PRIMARY KEY,
                           account_id INTEGER NOT NULL,
                           instrument_id INTEGER NOT NULL,

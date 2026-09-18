@@ -34,3 +34,7 @@ build/
 
 ### Environment variables ###
 .env
+
+### Local Spring Boot overrides ###
+application-dev-local.properties
+config/application-dev-local.properties
