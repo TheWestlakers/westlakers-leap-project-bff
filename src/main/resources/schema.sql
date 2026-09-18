@@ -112,7 +112,8 @@ CREATE TABLE IF NOT EXISTS orders (
                         limit_price NUMERIC(19,4),
                         quantity DECIMAL(19,4) NOT NULL,
                         status INTEGER NOT NULL,
-                        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                        placed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                        executed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
 
                         CONSTRAINT fk_order_account
                             FOREIGN KEY (account_id)
@@ -127,28 +128,6 @@ CREATE TABLE IF NOT EXISTS orders (
                                 REFERENCES order_status(order_status_id)
 );
 
-CREATE TABLE IF NOT EXISTS transactions (
-                              transaction_id SERIAL PRIMARY KEY,
-                              order_id INTEGER NOT NULL,
-                              account_id INTEGER NOT NULL,
-                              instrument_id INTEGER NOT NULL,
-                              txn_type VARCHAR(20) NOT NULL,
-                              quantity DECIMAL(19,4) NOT NULL,
-                              price NUMERIC(19,4) NOT NULL,
-                              txn_date TIMESTAMP NOT NULL,
-
-                              CONSTRAINT fk_transaction_order
-                                  FOREIGN KEY (order_id)
-                                      REFERENCES orders(order_id),
-
-                              CONSTRAINT fk_transaction_account
-                                  FOREIGN KEY (account_id)
-                                      REFERENCES accounts(account_id),
-
-                              CONSTRAINT fk_transaction_instrument
-                                  FOREIGN KEY (instrument_id)
-                                      REFERENCES instruments(instrument_id)
-);
 
 CREATE TABLE IF NOT EXISTS holdings (
                           holding_id SERIAL PRIMARY KEY,
