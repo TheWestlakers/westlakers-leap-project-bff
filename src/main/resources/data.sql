@@ -12,7 +12,7 @@ INSERT INTO account_status (account_status_id, status_name, description) VALUES 
 
 -- Insert Account Types (explicit IDs to ensure consistency)
 INSERT INTO account_types (account_type_id, type_name) VALUES (1, 'INDIVIDUAL');
-INSERT INTO account_types (account_type_id, type_name) VALUES (2, 'JOINT');
+INSERT INTO account_types (account_type_id, type_name) VALUES (2, 'HEALTH');
 INSERT INTO account_types (account_type_id, type_name) VALUES (3, 'RETIREMENT');
 INSERT INTO account_types (account_type_id, type_name) VALUES (4, 'CORPORATE');
 
