@@ -101,7 +101,6 @@ CREATE TABLE IF NOT EXISTS instruments (
                              asset_class_id INTEGER NOT NULL,
                              ticker VARCHAR(20) NOT NULL UNIQUE,
                              name VARCHAR(255) NOT NULL,
-                             currency VARCHAR(10),
 
                              CONSTRAINT fk_instrument_market
                                  FOREIGN KEY (market_id)
