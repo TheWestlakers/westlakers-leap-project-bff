@@ -26,6 +26,11 @@ CREATE TABLE IF NOT EXISTS order_status (
                               description VARCHAR(255)
 );
 
+CREATE TABLE IF NOT EXISTS asset_classes (
+                            asset_class_id SERIAL PRIMARY KEY,
+                            class_name VARCHAR(50) NOT NULL UNIQUE
+);
+
 CREATE TABLE IF NOT EXISTS markets (
                          market_id SERIAL PRIMARY KEY,
                          market_name VARCHAR(100) NOT NULL,
@@ -93,14 +98,17 @@ CREATE TABLE IF NOT EXISTS accounts (
 CREATE TABLE IF NOT EXISTS instruments (
                              instrument_id SERIAL PRIMARY KEY,
                              market_id INTEGER NOT NULL,
+                             asset_class_id INTEGER NOT NULL,
                              ticker VARCHAR(20) NOT NULL UNIQUE,
                              name VARCHAR(255) NOT NULL,
-                             asset_class VARCHAR(10),
                              currency VARCHAR(10),
 
                              CONSTRAINT fk_instrument_market
                                  FOREIGN KEY (market_id)
-                                     REFERENCES markets(market_id)
+                                     REFERENCES markets(market_id),
+                             CONSTRAINT fk_instrument_asset_class
+                                 FOREIGN KEY (asset_class_id)
+                                     REFERENCES asset_classes(asset_class_id)
 );
 
 CREATE TABLE IF NOT EXISTS orders (

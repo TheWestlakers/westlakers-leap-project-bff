@@ -22,6 +22,11 @@ INSERT INTO order_status (order_status_id, status_name, description) VALUES (2, 
 INSERT INTO order_status (order_status_id, status_name, description) VALUES (3, 'CANCELLED', 'Order cancelled');
 INSERT INTO order_status (order_status_id, status_name, description) VALUES (4, 'REJECTED', 'Order rejected');
 
+-- Insert Asset Classes (explicit IDs to ensure consistency)
+INSERT INTO asset_classes (asset_class_id, class_name) VALUES (1, 'EQUITY');
+INSERT INTO asset_classes (asset_class_id, class_name) VALUES (2, 'FOREX');
+INSERT INTO asset_classes (asset_class_id, class_name) VALUES (3, 'CRYPTO');
+
 -- Insert Markets (explicit IDs to ensure consistency)
 INSERT INTO markets (market_id, market_name, market_code, timezone, open_time, close_time) 
 VALUES (1, 'New York Stock Exchange', 'NYSE', 'America/New_York', '09:30:00', '16:00:00');
