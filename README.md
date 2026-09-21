@@ -25,6 +25,32 @@ Required keys:
 - `spring.security.user.name`
 - `spring.security.user.password`
 
+# Remote Database SSH Tunnel Setup
+
+## Quick Reference
+
+**SSH Tunnel Command:**
+```bash
+ssh -N -L 5433:localhost:5432 ec2-user@10.14.143.206
+```
+
+**Key Configuration Changes:**
+- `application-dev.properties`:
+  - `spring.datasource.url=jdbc:postgresql://localhost:5433/westlakersdb` (port 5433, not 5432)
+  - `spring.sql.init.mode=never` (skip script initialization for shared remote DB)
+  - `spring.jpa.hibernate.ddl-auto=none`
+
+## Verification
+- Port listening: `netstat -tuln | grep 5433`
+- Tunnel must stay open while developing
+- Run `./mvnw spring-boot:run` in separate terminal
+
+## Important Notes
+- Remote DB already contains data—don't re-initialize
+- Tunnel forwards local 5433 → remote localhost:5432
+- Keep SSH tunnel terminal open and in foreground
+- Database owner: ec2-user@10.14.143.206
+
 ## Run locally on Windows
 
 ```bat
