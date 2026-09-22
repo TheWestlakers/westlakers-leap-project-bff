@@ -1,6 +1,7 @@
 services:
   postgres:
     image: postgres:16
+    container_name: postgres_oltp
 
     environment:
       POSTGRES_DB: ${POSTGRES_DB}
@@ -13,6 +14,22 @@ services:
     volumes:
         - postgres_data:/var/lib/postgresql/data
 
+  postgres-olap:
+    image: postgres:16
+    container_name: postgres_olap
+
+    environment:
+      POSTGRES_DB: ${OLAP_POSTGRES_DB}
+      POSTGRES_USER: ${OLAP_POSTGRES_USER}
+      POSTGRES_PASSWORD: ${OLAP_POSTGRES_PASSWORD}
+
+    ports:
+        - "5433:5432"
+
+    volumes:
+        - postgres_olap_data:/var/lib/postgresql/data
+
 volumes:
     postgres_data:
+    postgres_olap_data:
 
