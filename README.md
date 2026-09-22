@@ -18,12 +18,16 @@ spring.security.user.name=devuser
 spring.security.user.password=your-local-app-password
 ```
 
-Required keys:
+There are currently 7 lines in the file, with 2 lines needing modification after the copy.
 
-- `spring.datasource.username`
-- `spring.datasource.password`
-- `spring.security.user.name`
-- `spring.security.user.password`
+Also, copy the .env.example file into an .env:
+
+```bat
+copy .env.example .env
+```
+
+Then update `.env` with your local values. There are currently 7 lines in the file, with 4 lines needing modification after the copy.
+
 
 # Remote Database SSH Tunnel Setup
 
@@ -54,6 +58,6 @@ ssh -N -L 5433:localhost:5432 ec2-user@10.14.143.206
 ## Run locally on Windows
 
 ```bat
-mvnw.cmd spring-boot:run
+mvn spring-boot:run
 ```
 
