@@ -35,7 +35,7 @@ Then update `.env` with your local values. There are currently 7 lines in the fi
 
 **SSH Tunnel Command:**
 ```bash
-ssh -N -L 5433:localhost:5432 ec2-user@10.14.143.206
+ssh -N -L 5433:localhost:5432 <user>@<host ip>
 ```
 
 **Key Configuration Changes:**
@@ -53,7 +53,6 @@ ssh -N -L 5433:localhost:5432 ec2-user@10.14.143.206
 - Remote DB already contains data—don't re-initialize
 - Tunnel forwards local 5433 → remote localhost:5432
 - Keep SSH tunnel terminal open and in foreground
-- Database owner: ec2-user@10.14.143.206
 
 ## Run locally on Windows
 
