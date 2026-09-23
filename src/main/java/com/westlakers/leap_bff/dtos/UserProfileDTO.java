@@ -11,6 +11,7 @@ import java.time.LocalDateTime;
 import com.westlakers.leap_bff.entities.Role;
 import com.westlakers.leap_bff.entities.User;
 import com.westlakers.leap_bff.entities.UserCredentials;
+import com.westlakers.leap_bff.entities.UserStatus;
 
 /**
  * DTO that flattens User, UserCredentials, Role, and UserStatus into a single
@@ -49,7 +50,7 @@ public class UserProfileDTO {
      * Convenience factory method to build a UserProfileDTO from related entities.
      * This demonstrates the flattening of separated entities for API responses.
      */
-    public static UserProfileDTO fromEntities(User user, UserCredentials credentials, Role role) {
+    public static UserProfileDTO fromEntities(User user, UserCredentials credentials, UserStatus userStatus, Role role) {
         return UserProfileDTO.builder()
                 .userId(user.getUserId())
                 .firstName(user.getFirstName())
@@ -58,8 +59,8 @@ public class UserProfileDTO {
                 .taxId(user.getTaxId())
                 .dateOfBirth(user.getDateOfBirth())
                 .createDate(user.getCreateDate())
-                .status(user.getStatus() != null ? user.getStatus().getStatusName() : null)
-                .statusId(user.getStatus() != null ? user.getStatus().getUserStatusId() : null)
+                .status(userStatus != null ? userStatus.getStatusName() : null)
+                .statusId(user.getStatusId())
                 .email(credentials.getEmail())
                 .username(credentials.getUsername())
                 .isActive(credentials.isActive())

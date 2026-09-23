@@ -9,11 +9,12 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 import com.westlakers.leap_bff.entities.User;
+import com.westlakers.leap_bff.entities.UserStatus;
 
 /**
  * Lightweight DTO for User list responses.
  * Contains only essential user information with status details.
- * Used for getAllUsers() endpoint to avoid lazy-loading issues.
+ * Used for getAllUsers() endpoint to avoid N+1 queries.
  */
 @Data
 @NoArgsConstructor
@@ -32,9 +33,9 @@ public class UserDTO {
 
     /**
      * Factory method to convert User entity to UserDTO.
-     * Safely accesses the lazy-loaded status within the session context.
+     * Note: statusName must be fetched separately using StatusMapper.
      */
-    public static UserDTO fromEntity(User user) {
+    public static UserDTO fromEntity(User user, UserStatus userStatus) {
         return UserDTO.builder()
                 .userId(user.getUserId())
                 .firstName(user.getFirstName())
@@ -43,8 +44,8 @@ public class UserDTO {
                 .taxId(user.getTaxId())
                 .dateOfBirth(user.getDateOfBirth())
                 .createDate(user.getCreateDate())
-                .statusName(user.getStatus() != null ? user.getStatus().getStatusName() : null)
-                .statusId(user.getStatus() != null ? user.getStatus().getUserStatusId() : null)
+                .statusName(userStatus != null ? userStatus.getStatusName() : null)
+                .statusId(user.getStatusId())
                 .build();
     }
 }

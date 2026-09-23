@@ -1,52 +1,65 @@
 package com.westlakers.leap_bff.services;
 
 import java.util.List;
-import java.util.Optional;
 import java.util.stream.Collectors;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import com.westlakers.leap_bff.repositories.UserRepository;
+import com.westlakers.leap_bff.mappers.UserMapper;
+import com.westlakers.leap_bff.mappers.UserCredentialsMapper;
+import com.westlakers.leap_bff.mappers.RoleMapper;
+import com.westlakers.leap_bff.mappers.UserStatusMapper;
 import com.westlakers.leap_bff.entities.User;
 import com.westlakers.leap_bff.entities.UserCredentials;
 import com.westlakers.leap_bff.entities.Role;
-import com.westlakers.leap_bff.repositories.UserCredentialsRepository;
+import com.westlakers.leap_bff.entities.UserStatus;
 import com.westlakers.leap_bff.dtos.UserDTO;
 import com.westlakers.leap_bff.dtos.UserProfileDTO;
 
 @Service 
 public class UserService {
 
-    private final UserRepository userRepository;
-    private final UserCredentialsRepository credentialsRepository;
+    private final UserMapper userMapper;
+    private final UserCredentialsMapper credentialsMapper;
+    private final RoleMapper roleMapper;
+    private final UserStatusMapper userStatusMapper;
 
-    public UserService(UserRepository userRepository, UserCredentialsRepository credentialsRepository) {
-        this.userRepository = userRepository;
-        this.credentialsRepository = credentialsRepository;
+    public UserService(UserMapper userMapper, UserCredentialsMapper credentialsMapper, 
+                      RoleMapper roleMapper, UserStatusMapper userStatusMapper) {
+        this.userMapper = userMapper;
+        this.credentialsMapper = credentialsMapper;
+        this.roleMapper = roleMapper;
+        this.userStatusMapper = userStatusMapper;
     }
 
 
     @Transactional(readOnly = true)
     public List<UserDTO> getAllUsers() {
-        List<User> users = this.userRepository.findAll();
+        List<User> users = this.userMapper.findAll();
         
         if(users.size() == 0) {
             throw new RuntimeException("List was zero");
         }
-        // Convert User entities to DTOs
-        return users.stream().map(UserDTO::fromEntity).collect(Collectors.toList());
+        // Convert User entities to DTOs, fetching status for each user
+        return users.stream()
+                .map(user -> {
+                    UserStatus userStatus = userStatusMapper.findById(user.getStatusId());
+                    return UserDTO.fromEntity(user, userStatus);
+                })
+                .collect(Collectors.toList());
     }
 
     @Transactional(readOnly = true)
     public UserDTO getUserById(Long id) {
-        Optional<User> result = this.userRepository.findById(id);
+        User user = this.userMapper.findById(id);
 
-        if(!result.isPresent()) {
+        if(user == null) {
             throw new RuntimeException("User not found with id: " + id);
         }
-
-        return UserDTO.fromEntity(result.get());
+        
+        UserStatus userStatus = userStatusMapper.findById(user.getStatusId());
+        return UserDTO.fromEntity(user, userStatus);
     }
 
     /**
@@ -55,21 +68,20 @@ public class UserService {
      */
     @Transactional(readOnly = true)
     public UserProfileDTO getUserProfile(Long userId) {
-        Optional<User> userResult = this.userRepository.findById(userId);
+        User user = this.userMapper.findById(userId);
         
-        if(!userResult.isPresent()) {
+        if(user == null) {
             throw new RuntimeException("User not found with id: " + userId);
         }
         
-        Optional<UserCredentials> credResult = credentialsRepository.findByUserUserId(userId);
-        if(!credResult.isPresent()) {
+        UserCredentials credentials = credentialsMapper.findByUserId(userId);
+        if(credentials == null) {
             throw new RuntimeException("Credentials not found for user id: " + userId);
         }
-                
-        User user = userResult.get();
-        UserCredentials credentials = credResult.get();
-        Role role = credentials.getRole();
         
-        return UserProfileDTO.fromEntities(user, credentials, role);
+        Role role = roleMapper.findById(credentials.getRoleId());
+        UserStatus userStatus = userStatusMapper.findById(user.getStatusId());
+        
+        return UserProfileDTO.fromEntities(user, credentials, userStatus, role);
     }
 }
