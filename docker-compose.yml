@@ -1,6 +1,7 @@
 services:
   postgres:
     image: postgres:16
+    container_name: postgres_server
 
     environment:
       POSTGRES_DB: ${POSTGRES_DB}
@@ -12,6 +13,15 @@ services:
 
     volumes:
         - postgres_data:/var/lib/postgresql/data
+        - ./src/main/resources/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql
+        - ./src/main/resources/data.sql:/docker-entrypoint-initdb.d/02-data.sql
+        - ./init/01-init-olap.sql:/docker-entrypoint-initdb.d/03-init-olap.sql
+
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
 volumes:
     postgres_data:
