@@ -15,7 +15,9 @@ services:
         - postgres_data:/var/lib/postgresql/data
         - ./src/main/resources/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql
         - ./src/main/resources/data.sql:/docker-entrypoint-initdb.d/02-data.sql
-        - ./init/01-init-olap.sql:/docker-entrypoint-initdb.d/03-init-olap.sql
+        - ./init/01-init-olap-db.sql:/docker-entrypoint-initdb.d/03-init-olap-db.sql
+        - ./init/02-init-olap-schema.sql:/docker-entrypoint-initdb.d/04-init-olap-schema.sql
+        - ./init/03-init-olap.sh:/docker-entrypoint-initdb.d/05-init-olap.sh
 
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER}"]
