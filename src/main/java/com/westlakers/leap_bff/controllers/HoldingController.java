@@ -6,10 +6,13 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.westlakers.leap_bff.dtos.HoldingDTO;
+import com.westlakers.leap_bff.entities.Holding;
 import com.westlakers.leap_bff.services.HoldingService;
 
 
@@ -59,6 +62,18 @@ public class HoldingController {
         } catch (RuntimeException e) {
             return ResponseEntity.badRequest()
                 .body("Unable to retrieve holding details: " + e.getMessage());
+        }
+    }
+
+    @PostMapping("/holdings")
+    public ResponseEntity<String> createHolding(@RequestBody Holding holding) {
+        try {
+            HoldingDTO createdHolding = this.holdingService.createHolding(holding);
+            return ResponseEntity.status(HttpStatus.CREATED)
+                .body("Holding created successfully with ID: " + createdHolding.getHoldingId());
+        } catch (RuntimeException e) {
+            return ResponseEntity.badRequest()
+                .body("Failed to create holding: " + e.getMessage());
         }
     }
 }

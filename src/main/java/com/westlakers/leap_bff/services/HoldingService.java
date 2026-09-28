@@ -55,4 +55,30 @@ public class HoldingService {
                 .map(HoldingDTO::fromEntity)
                 .collect(Collectors.toList());
     }
+
+    @Transactional
+    public HoldingDTO createHolding(Holding holding) {
+        // Validate required fields
+        if(holding.getAccountId() == null) {
+            throw new RuntimeException("Account ID is required");
+        }
+        if(holding.getInstrumentId() == null) {
+            throw new RuntimeException("Instrument ID is required");
+        }
+        if(holding.getQuantity() == null) {
+            throw new RuntimeException("Quantity is required");
+        }
+        if(holding.getAveragePrice() == null) {
+            throw new RuntimeException("Average Price is required");
+        }
+
+        // Insert the holding
+        int result = this.holdingMapper.insert(holding);
+        if(result == 0) {
+            throw new RuntimeException("Failed to create holding");
+        }
+
+        // Return the created holding
+        return HoldingDTO.fromEntity(holding);
+    }
 }
