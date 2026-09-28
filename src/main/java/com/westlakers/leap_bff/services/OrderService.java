@@ -143,4 +143,19 @@ public class OrderService {
         OrderStatus orderStatus = orderStatusMapper.findById(updated.getStatus());
         return OrderDTO.fromEntity(updated, orderStatus);
     }
+
+    @Transactional
+    public void deleteOrder(Long orderId) {
+        // Verify order exists
+        Order order = this.orderMapper.findById(orderId);
+        if(order == null) {
+            throw new RuntimeException("Order not found with id: " + orderId);
+        }
+
+        // Delete the order
+        int result = this.orderMapper.delete(orderId);
+        if(result == 0) {
+            throw new RuntimeException("Failed to delete order with id: " + orderId);
+        }
+    }
 }
