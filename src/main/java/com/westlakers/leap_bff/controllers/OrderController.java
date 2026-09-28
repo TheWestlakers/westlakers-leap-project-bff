@@ -7,6 +7,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -80,6 +81,18 @@ public class OrderController {
         } catch (RuntimeException e) {
             return ResponseEntity.badRequest()
                 .body("Failed to create order: " + e.getMessage());
+        }
+    }
+
+    @PatchMapping("/orders/{id}")
+    public ResponseEntity<String> updateOrder(@PathVariable Long id, @RequestBody Order order) {
+        try {
+            OrderDTO updatedOrder = this.orderService.updateOrder(id, order);
+            return ResponseEntity.ok()
+                .body("Order updated successfully with ID: " + updatedOrder.getOrderId());
+        } catch (RuntimeException e) {
+            return ResponseEntity.badRequest()
+                .body("Failed to update order: " + e.getMessage());
         }
     }
 }

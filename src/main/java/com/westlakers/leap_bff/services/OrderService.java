@@ -120,4 +120,27 @@ public class OrderService {
         OrderStatus orderStatus = orderStatusMapper.findById(order.getStatus());
         return OrderDTO.fromEntity(order, orderStatus);
     }
+
+    @Transactional
+    public OrderDTO updateOrder(Long orderId, Order updatedOrder) {
+        // Verify order exists
+        Order existingOrder = this.orderMapper.findById(orderId);
+        if(existingOrder == null) {
+            throw new RuntimeException("Order not found with id: " + orderId);
+        }
+
+        // Set the order ID to ensure we're updating the correct record
+        updatedOrder.setOrderId(orderId);
+
+        // Update the order
+        int result = this.orderMapper.update(updatedOrder);
+        if(result == 0) {
+            throw new RuntimeException("Failed to update order with id: " + orderId);
+        }
+
+        // Fetch and return the updated order
+        Order updated = this.orderMapper.findById(orderId);
+        OrderStatus orderStatus = orderStatusMapper.findById(updated.getStatus());
+        return OrderDTO.fromEntity(updated, orderStatus);
+    }
 }
