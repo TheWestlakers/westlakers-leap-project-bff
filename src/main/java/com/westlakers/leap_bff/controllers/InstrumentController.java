@@ -7,9 +7,10 @@ import com.westlakers.leap_bff.services.InstrumentService;
 
 import java.util.List;
 
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.RequestParam;
 import com.westlakers.leap_bff.entities.Instrument;
 
 
@@ -23,12 +24,16 @@ public class InstrumentController {
     }
 
     @GetMapping("/instruments")
-    public List<Instrument> getAllInstruments() {
-        return this.instrumentService.getAllInstruments();
+    public ResponseEntity<List<Instrument>> getAllInstruments() {
+        ResponseEntity<List<Instrument>> response = new ResponseEntity<>(this.instrumentService.getAllInstruments(), HttpStatus.OK);
+        
+        return response;
     }
 
     @GetMapping("/instruments/{id}")
-    public Instrument getInstrumentById(@PathVariable Long id) {
-        return this.instrumentService.getInstrumentById(id);
+    public ResponseEntity<Instrument> getInstrumentById(@PathVariable Long id) {
+        ResponseEntity<Instrument> response = new ResponseEntity<>(this.instrumentService.getInstrumentById(id), HttpStatus.OK);
+
+        return response;
     }
 }
