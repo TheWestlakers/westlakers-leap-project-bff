@@ -24,13 +24,13 @@ public interface InstrumentMapper {
     @Select("SELECT instrument_id, market_id, asset_class_id, ticker, name FROM instruments WHERE ticker = #{ticker}")
     Instrument findByTicker(String ticker);
 
-    @Update("UPDATE instruments SET market_id = #{instrument.marketId}, asset_class_id = #{instrument.assetClassId}, ticker = #{instrument.ticker}, name = #{instrument.name} WHERE instrument_id = #{instrument.instrumentId}")
+    @Update("UPDATE instruments SET market_id = #{marketId}, asset_class_id = #{assetClassId}, ticker = #{ticker}, name = #{name} WHERE instrument_id = #{instrumentId}")
     int saveInstrument(Instrument instrument);
 
     @Delete("DELETE FROM instruments WHERE instrument_id = #{id}")
     int deleteInstrumentById(@Param("id") Long id);
 
-    @Insert("INSERT INTO instruments (market_id, asset_class_id, ticker, name) VALUES (#{instrument.marketId}, #{instrument.assetClassId}, #{instrument.ticker}, #{instrument.name})")
-    @Options(useGeneratedKeys = true, keyProperty = "instrument.instrumentId")
+    @Insert("INSERT INTO instruments (market_id, asset_class_id, ticker, name) VALUES (#{marketId}, #{assetClassId}, #{ticker}, #{name})")
+    @Options(useGeneratedKeys = true, keyProperty = "instrumentId", keyColumn = "instrument_id")
     int createInstrument(Instrument instrument);
 }
