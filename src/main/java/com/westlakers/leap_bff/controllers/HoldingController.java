@@ -8,6 +8,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -87,6 +88,18 @@ public class HoldingController {
         } catch (RuntimeException e) {
             return ResponseEntity.badRequest()
                 .body("Failed to update holding: " + e.getMessage());
+        }
+    }
+
+    @DeleteMapping("/holdings/{id}")
+    public ResponseEntity<String> deleteHolding(@PathVariable Long id) {
+        try {
+            this.holdingService.deleteHolding(id);
+            return ResponseEntity.ok()
+                .body("Holding deleted successfully with ID: " + id);
+        } catch (RuntimeException e) {
+            return ResponseEntity.badRequest()
+                .body("Failed to delete holding: " + e.getMessage());
         }
     }
 }

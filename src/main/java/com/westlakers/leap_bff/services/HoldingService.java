@@ -103,4 +103,19 @@ public class HoldingService {
         Holding updated = this.holdingMapper.findById(holdingId);
         return HoldingDTO.fromEntity(updated);
     }
+
+    @Transactional
+    public void deleteHolding(Long holdingId) {
+        // Verify holding exists
+        Holding holding = this.holdingMapper.findById(holdingId);
+        if(holding == null) {
+            throw new RuntimeException("Holding not found with id: " + holdingId);
+        }
+
+        // Delete the holding
+        int result = this.holdingMapper.delete(holdingId);
+        if(result == 0) {
+            throw new RuntimeException("Failed to delete holding with id: " + holdingId);
+        }
+    }
 }
