@@ -144,4 +144,19 @@ public class AccountService {
         AccountStatus accountStatus = accountStatusMapper.findById(updated.getAccountStatusId());
         return AccountDTO.fromEntity(updated, accountStatus);
     }
+
+    @Transactional
+    public void deleteAccount(Long accountId) {
+        // Verify account exists
+        Account account = this.accountMapper.findById(accountId);
+        if(account == null) {
+            throw new RuntimeException("Account not found with id: " + accountId);
+        }
+
+        // Delete the account
+        int result = this.accountMapper.delete(accountId);
+        if(result == 0) {
+            throw new RuntimeException("Failed to delete account with id: " + accountId);
+        }
+    }
 }

@@ -8,6 +8,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -94,6 +95,18 @@ public class AccountController {
         } catch (RuntimeException e) {
             return ResponseEntity.badRequest()
                 .body("Failed to update account: " + e.getMessage());
+        }
+    }
+
+    @DeleteMapping("/accounts/{id}")
+    public ResponseEntity<String> deleteAccount(@PathVariable Long id) {
+        try {
+            this.accountService.deleteAccount(id);
+            return ResponseEntity.ok()
+                .body("Account deleted successfully with ID: " + id);
+        } catch (RuntimeException e) {
+            return ResponseEntity.badRequest()
+                .body("Failed to delete account: " + e.getMessage());
         }
     }
 }
