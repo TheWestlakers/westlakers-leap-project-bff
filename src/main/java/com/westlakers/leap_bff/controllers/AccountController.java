@@ -6,12 +6,15 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.westlakers.leap_bff.dtos.AccountDTO;
 import com.westlakers.leap_bff.dtos.AccountProfileDTO;
+import com.westlakers.leap_bff.entities.Account;
 import com.westlakers.leap_bff.services.AccountService;
 
 
@@ -66,6 +69,18 @@ public class AccountController {
         } catch (RuntimeException e) {
             return ResponseEntity.badRequest()
                 .body("Unable to retrieve account status: " + e.getMessage());
+        }
+    }
+
+    @PostMapping("/accounts")
+    public ResponseEntity<String> createAccount(@RequestBody Account account) {
+        try {
+            AccountDTO createdAccount = this.accountService.createAccount(account);
+            return ResponseEntity.status(HttpStatus.CREATED)
+                .body("Account created successfully with ID: " + createdAccount.getAccountId());
+        } catch (RuntimeException e) {
+            return ResponseEntity.badRequest()
+                .body("Failed to create account: " + e.getMessage());
         }
     }
 }

@@ -97,4 +97,28 @@ public class AccountService {
 
         return AccountProfileDTO.fromEntities(account, accountStatus, accountType);
     }
+
+    @Transactional
+    public AccountDTO createAccount(Account account) {
+        // Validate required fields
+        if(account.getUserId() == null) {
+            throw new RuntimeException("User ID is required");
+        }
+        if(account.getAccountTypeId() == null) {
+            throw new RuntimeException("Account Type ID is required");
+        }
+        if(account.getAccountStatusId() == null) {
+            throw new RuntimeException("Account Status ID is required");
+        }
+
+        // Insert the account
+        int result = this.accountMapper.insert(account);
+        if(result == 0) {
+            throw new RuntimeException("Failed to create account");
+        }
+
+        // Fetch and return the created account
+        AccountStatus accountStatus = accountStatusMapper.findById(account.getAccountStatusId());
+        return AccountDTO.fromEntity(account, accountStatus);
+    }
 }
