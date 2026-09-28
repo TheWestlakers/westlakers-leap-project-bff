@@ -121,4 +121,27 @@ public class AccountService {
         AccountStatus accountStatus = accountStatusMapper.findById(account.getAccountStatusId());
         return AccountDTO.fromEntity(account, accountStatus);
     }
+
+    @Transactional
+    public AccountDTO updateAccount(Long accountId, Account updatedAccount) {
+        // Verify account exists
+        Account existingAccount = this.accountMapper.findById(accountId);
+        if(existingAccount == null) {
+            throw new RuntimeException("Account not found with id: " + accountId);
+        }
+
+        // Set the account ID to ensure we're updating the correct record
+        updatedAccount.setAccountId(accountId);
+
+        // Update the account
+        int result = this.accountMapper.update(updatedAccount);
+        if(result == 0) {
+            throw new RuntimeException("Failed to update account with id: " + accountId);
+        }
+
+        // Fetch and return the updated account
+        Account updated = this.accountMapper.findById(accountId);
+        AccountStatus accountStatus = accountStatusMapper.findById(updated.getAccountStatusId());
+        return AccountDTO.fromEntity(updated, accountStatus);
+    }
 }

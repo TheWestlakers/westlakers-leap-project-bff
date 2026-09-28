@@ -7,6 +7,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -81,6 +82,18 @@ public class AccountController {
         } catch (RuntimeException e) {
             return ResponseEntity.badRequest()
                 .body("Failed to create account: " + e.getMessage());
+        }
+    }
+
+    @PatchMapping("/accounts/{id}")
+    public ResponseEntity<String> updateAccount(@PathVariable Long id, @RequestBody Account account) {
+        try {
+            AccountDTO updatedAccount = this.accountService.updateAccount(id, account);
+            return ResponseEntity.ok()
+                .body("Account updated successfully with ID: " + updatedAccount.getAccountId());
+        } catch (RuntimeException e) {
+            return ResponseEntity.badRequest()
+                .body("Failed to update account: " + e.getMessage());
         }
     }
 }
