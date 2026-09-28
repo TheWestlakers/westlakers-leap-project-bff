@@ -2,6 +2,8 @@ package com.westlakers.leap_bff.controllers;
 
 import java.util.List;
 
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -33,5 +35,30 @@ public class HoldingController {
     @GetMapping("/accounts/{accountId}/holdings")
     public List<HoldingDTO> getHoldingsByAccountId(@PathVariable Long accountId) {
         return this.holdingService.getHoldingsByAccountId(accountId);
+    }
+
+    @GetMapping("/holdings/{id}/validate")
+    public ResponseEntity<String> validateHoldingExists(@PathVariable Long id) {
+        try {
+            this.holdingService.getHoldingById(id);
+            return ResponseEntity.ok()
+                .header("X-Holding-Status", "VALID")
+                .body("Holding exists and is valid");
+        } catch (RuntimeException e) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                .body("Holding not found with id: " + id);
+        }
+    }
+
+    @GetMapping("/holdings/{id}/details")
+    public ResponseEntity<String> checkHoldingDetails(@PathVariable Long id) {
+        try {
+            HoldingDTO holding = this.holdingService.getHoldingById(id);
+            return ResponseEntity.ok()
+                .body("Holding quantity: " + holding.getQuantity() + ", Average price: " + holding.getAveragePrice());
+        } catch (RuntimeException e) {
+            return ResponseEntity.badRequest()
+                .body("Unable to retrieve holding details: " + e.getMessage());
+        }
     }
 }
