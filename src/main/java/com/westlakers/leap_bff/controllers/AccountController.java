@@ -2,9 +2,12 @@ package com.westlakers.leap_bff.controllers;
 
 import java.util.List;
 
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.westlakers.leap_bff.dtos.AccountDTO;
@@ -39,5 +42,30 @@ public class AccountController {
     @GetMapping("/users/{userId}/accounts")
     public List<AccountDTO> getAccountsByUserId(@PathVariable Long userId) {
         return this.accountService.getAccountsByUserId(userId);
+    }
+
+    @GetMapping("/accounts/{id}/validate")
+    public ResponseEntity<String> validateAccountExists(@PathVariable Long id) {
+        try {
+            this.accountService.getAccountById(id);
+            return ResponseEntity.ok()
+                .header("X-Account-Status", "VALID")
+                .body("Account exists and is valid");
+        } catch (RuntimeException e) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                .body("Account not found with id: " + id);
+        }
+    }
+
+    @GetMapping("/accounts/{id}/status")
+    public ResponseEntity<String> checkAccountStatus(@PathVariable Long id) {
+        try {
+            AccountDTO account = this.accountService.getAccountById(id);
+            return ResponseEntity.ok()
+                .body("Account status: " + account.getStatusName());
+        } catch (RuntimeException e) {
+            return ResponseEntity.badRequest()
+                .body("Unable to retrieve account status: " + e.getMessage());
+        }
     }
 }
