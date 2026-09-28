@@ -81,4 +81,26 @@ public class HoldingService {
         // Return the created holding
         return HoldingDTO.fromEntity(holding);
     }
+
+    @Transactional
+    public HoldingDTO updateHolding(Long holdingId, Holding updatedHolding) {
+        // Verify holding exists
+        Holding existingHolding = this.holdingMapper.findById(holdingId);
+        if(existingHolding == null) {
+            throw new RuntimeException("Holding not found with id: " + holdingId);
+        }
+
+        // Set the holding ID to ensure we're updating the correct record
+        updatedHolding.setHoldingId(holdingId);
+
+        // Update the holding
+        int result = this.holdingMapper.update(updatedHolding);
+        if(result == 0) {
+            throw new RuntimeException("Failed to update holding with id: " + holdingId);
+        }
+
+        // Fetch and return the updated holding
+        Holding updated = this.holdingMapper.findById(holdingId);
+        return HoldingDTO.fromEntity(updated);
+    }
 }

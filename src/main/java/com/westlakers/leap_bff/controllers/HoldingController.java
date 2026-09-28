@@ -7,6 +7,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -74,6 +75,18 @@ public class HoldingController {
         } catch (RuntimeException e) {
             return ResponseEntity.badRequest()
                 .body("Failed to create holding: " + e.getMessage());
+        }
+    }
+
+    @PatchMapping("/holdings/{id}")
+    public ResponseEntity<String> updateHolding(@PathVariable Long id, @RequestBody Holding holding) {
+        try {
+            HoldingDTO updatedHolding = this.holdingService.updateHolding(id, holding);
+            return ResponseEntity.ok()
+                .body("Holding updated successfully with ID: " + updatedHolding.getHoldingId());
+        } catch (RuntimeException e) {
+            return ResponseEntity.badRequest()
+                .body("Failed to update holding: " + e.getMessage());
         }
     }
 }
