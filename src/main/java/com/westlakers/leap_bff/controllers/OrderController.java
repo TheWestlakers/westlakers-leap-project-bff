@@ -6,11 +6,14 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.westlakers.leap_bff.dtos.OrderDTO;
 import com.westlakers.leap_bff.dtos.OrderProfileDTO;
+import com.westlakers.leap_bff.entities.Order;
 import com.westlakers.leap_bff.services.OrderService;
 
 
@@ -65,6 +68,18 @@ public class OrderController {
         } catch (RuntimeException e) {
             return ResponseEntity.badRequest()
                 .body("Unable to retrieve order status: " + e.getMessage());
+        }
+    }
+
+    @PostMapping("/orders")
+    public ResponseEntity<String> createOrder(@RequestBody Order order) {
+        try {
+            OrderDTO createdOrder = this.orderService.createOrder(order);
+            return ResponseEntity.status(HttpStatus.CREATED)
+                .body("Order created successfully with ID: " + createdOrder.getOrderId());
+        } catch (RuntimeException e) {
+            return ResponseEntity.badRequest()
+                .body("Failed to create order: " + e.getMessage());
         }
     }
 }

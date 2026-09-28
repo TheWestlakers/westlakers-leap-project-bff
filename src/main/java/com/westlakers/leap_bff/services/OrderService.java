@@ -87,4 +87,37 @@ public class OrderService {
 
         return OrderProfileDTO.fromEntities(order, orderStatus);
     }
+
+    @Transactional
+    public OrderDTO createOrder(Order order) {
+        // Validate required fields
+        if(order.getAccountId() == null) {
+            throw new RuntimeException("Account ID is required");
+        }
+        if(order.getInstrumentId() == null) {
+            throw new RuntimeException("Instrument ID is required");
+        }
+        if(order.getSide() == null || order.getSide().isEmpty()) {
+            throw new RuntimeException("Side is required (BUY or SELL)");
+        }
+        if(order.getOrderType() == null || order.getOrderType().isEmpty()) {
+            throw new RuntimeException("Order Type is required");
+        }
+        if(order.getQuantity() == null) {
+            throw new RuntimeException("Quantity is required");
+        }
+        if(order.getStatus() == null) {
+            throw new RuntimeException("Status ID is required");
+        }
+
+        // Insert the order
+        int result = this.orderMapper.insert(order);
+        if(result == 0) {
+            throw new RuntimeException("Failed to create order");
+        }
+
+        // Fetch and return the created order
+        OrderStatus orderStatus = orderStatusMapper.findById(order.getStatus());
+        return OrderDTO.fromEntity(order, orderStatus);
+    }
 }
