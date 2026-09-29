@@ -10,6 +10,9 @@ import logging
 import sys
 from config import ETLConfig
 from trading_volumes_etl import TradingVolumesETL
+from active_instruments_pipeline import ActiveInstrumentsPipeline
+from client_activity_trends_pipeline import ClientActivityTrendsPipeline
+from client_segment_analysis_pipeline import ClientSegmentAnalysisPipeline  
 
 # Configure logging
 logging.basicConfig(
@@ -35,7 +38,10 @@ def run_all_pipelines(days_back: int = 30) -> int:
         int: Exit code (0 for success, 1 for failure)
     """
     pipelines = [
-        ("Trading Volumes", TradingVolumesETL())
+        ("Trading Volumes", TradingVolumesETL()),
+        ("Active Instruments", ActiveInstrumentsPipeline()),
+        ("Client Activity Trends", ClientActivityTrendsPipeline()),
+        ("Client Segment Analysis", ClientSegmentAnalysisPipeline())
     ]
     
     failed_pipelines = []
@@ -68,7 +74,10 @@ def run_single_pipeline(pipeline_name: str, days_back: int = 30) -> int:
         int: Exit code (0 for success, 1 for failure)
     """
     pipelines = {
-        "trading_volumes": TradingVolumesETL()
+        "trading_volumes": TradingVolumesETL(),
+        "active_instruments": ActiveInstrumentsPipeline(),
+        "client_activity_trends": ClientActivityTrendsPipeline(),
+        "client_segment_analysis": ClientSegmentAnalysisPipeline()
     }
     
     pipeline = pipelines.get(pipeline_name.lower())
