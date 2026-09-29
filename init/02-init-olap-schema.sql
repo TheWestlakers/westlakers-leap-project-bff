@@ -49,10 +49,40 @@ CREATE TABLE IF NOT EXISTS dim_accounts (
 );
 
 -- ============================================================================
+-- STAGING TABLES
+-- ============================================================================
+
+-- Raw denormalized trading data (staging layer)
+-- Populated directly from source database with all individual trades
+-- Acts as the master data source for all downstream aggregations
+CREATE TABLE IF NOT EXISTS stg_trading_volumes (
+    staging_id SERIAL PRIMARY KEY,
+    order_id BIGINT NOT NULL,
+    account_id BIGINT NOT NULL,
+    instrument_id INT NOT NULL,
+    user_id BIGINT NOT NULL,
+    side VARCHAR(10),
+    quantity DECIMAL(18,8),
+    limit_price DECIMAL(18,8),
+    executed_at TIMESTAMP,
+    account_type VARCHAR(50),
+    first_name VARCHAR(255),
+    last_name VARCHAR(255),
+    instrument_code VARCHAR(20),
+    instrument_name VARCHAR(255),
+    instrument_type VARCHAR(50),
+    client_segment VARCHAR(50),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(order_id)
+);
+
+-- ============================================================================
 -- FACT/AGGREGATE TABLES
 -- ============================================================================
 
--- Trading volumes by hour, instrument, and account
+-- Master fact table: Trading volumes by hour, instrument, and account
+-- Aggregated from stg_trading_volumes with dimension keys
+-- All downstream aggregations derive from this table
 CREATE TABLE IF NOT EXISTS fact_trading_volumes_hourly (
     trading_volume_key SERIAL PRIMARY KEY,
     datetime_key INT REFERENCES dim_date_time(datetime_key),
@@ -121,11 +151,22 @@ CREATE TABLE IF NOT EXISTS agg_segment_activity_daily (
 -- INDEXES FOR PERFORMANCE
 -- ============================================================================
 
+-- Staging table indexes
+CREATE INDEX IF NOT EXISTS idx_stg_trading_executed_at ON stg_trading_volumes(executed_at);
+CREATE INDEX IF NOT EXISTS idx_stg_trading_instrument_id ON stg_trading_volumes(instrument_id);
+CREATE INDEX IF NOT EXISTS idx_stg_trading_account_id ON stg_trading_volumes(account_id);
+CREATE INDEX IF NOT EXISTS idx_stg_trading_user_id ON stg_trading_volumes(user_id);
+
+-- Fact table indexes
 CREATE INDEX IF NOT EXISTS idx_fact_trading_volumes_datetime ON fact_trading_volumes_hourly(datetime_key);
 CREATE INDEX IF NOT EXISTS idx_fact_trading_volumes_instrument ON fact_trading_volumes_hourly(instrument_key);
 CREATE INDEX IF NOT EXISTS idx_fact_trading_volumes_client ON fact_trading_volumes_hourly(client_key);
+
+-- Aggregate table indexes
 CREATE INDEX IF NOT EXISTS idx_agg_instrument_date ON agg_instrument_activity(date_key);
 CREATE INDEX IF NOT EXISTS idx_agg_client_date ON agg_client_activity_daily(date_key);
 CREATE INDEX IF NOT EXISTS idx_agg_segment_date ON agg_segment_activity_daily(date_key);
+
+-- Dimension table indexes
 CREATE INDEX IF NOT EXISTS idx_dim_date_date ON dim_date_time(date);
 CREATE INDEX IF NOT EXISTS idx_dim_clients_segment ON dim_clients(client_segment);

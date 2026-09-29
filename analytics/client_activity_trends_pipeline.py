@@ -1,7 +1,12 @@
 """
-Client Activity Trends ETL Pipeline
-Aggregates trading data by client and date to identify trends and engagement patterns
-Populates agg_client_activity_daily table
+Client Activity Trends Aggregation Pipeline
+Derives insights from the master fact table (fact_trading_volumes_hourly).
+Aggregates trading data by client and date to identify trends and engagement patterns.
+
+Architecture:
+- Reads from: fact_trading_volumes_hourly (master fact table)
+- Writes to: agg_client_activity_daily
+- All data is aggregated from the stable master fact table
 """
 import logging
 from datetime import datetime, timedelta
@@ -14,10 +19,12 @@ logger = logging.getLogger(__name__)
 
 class ClientActivityTrendsPipeline:
     """
-    ETL Pipeline for client activity trends analysis
-    - Aggregates fact_trading_volumes_hourly by client and date
-    - Calculates: trades, volume, value, unique instruments, trading days active
-    - Identifies client engagement and activity patterns
+    Aggregation pipeline for client activity trends analysis.
+    
+    Reads from master fact table and creates daily client activity aggregations.
+    Calculates metrics: trades, volume, value, unique instruments, trading days active.
+    
+    Data flow: fact_trading_volumes_hourly → agg_client_activity_daily
     """
     
     def __init__(self):

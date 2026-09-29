@@ -1,7 +1,12 @@
 """
-Client Segment Analysis ETL Pipeline
-Aggregates trading data by client segment and date to analyze segment performance
-Populates agg_segment_activity_daily table
+Client Segment Analysis Aggregation Pipeline
+Derives insights from the master fact table (fact_trading_volumes_hourly).
+Aggregates trading data by client segment and date to analyze segment performance.
+
+Architecture:
+- Reads from: fact_trading_volumes_hourly (master fact table)
+- Writes to: agg_segment_activity_daily
+- All data is aggregated from the stable master fact table
 """
 import logging
 from datetime import datetime, timedelta
@@ -14,10 +19,12 @@ logger = logging.getLogger(__name__)
 
 class ClientSegmentAnalysisPipeline:
     """
-    ETL Pipeline for client segment analysis
-    - Aggregates fact_trading_volumes_hourly by client segment and date
-    - Calculates: client count, account count, trades, volume, value, unique instruments
-    - Enables segment-level performance analysis and retention metrics
+    Aggregation pipeline for client segment analysis.
+    
+    Reads from master fact table and creates daily segment activity aggregations.
+    Calculates metrics: client count, account count, trades, volume, value, unique instruments.
+    
+    Data flow: fact_trading_volumes_hourly → agg_segment_activity_daily
     """
     
     def __init__(self):

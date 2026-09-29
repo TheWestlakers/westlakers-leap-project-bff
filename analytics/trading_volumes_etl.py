@@ -1,7 +1,24 @@
 """
 Minimal Trading Volumes ETL Pipeline
-Extracts orders from source database and loads into OLAP fact/dimension tables
-Tests data transformation and schema population
+Implements master data table architecture for data warehouse.
+
+Pipeline Flow:
+1. Extract orders from source database
+2. Load stg_trading_volumes (master staging table with denormalized data)
+3. Load dimension tables (date, clients, instruments, accounts)
+4. Load fact_trading_volumes_hourly (aggregated from staging table)
+
+Architecture:
+- stg_trading_volumes: Denormalized master table (single source of truth for trading data)
+- fact_trading_volumes_hourly: Aggregated fact table at hourly granularity
+- All aggregation pipelines read from fact_trading_volumes_hourly
+- This separation allows fact table reprocessing without re-extracting from source
+
+Benefits:
+- Single source of truth for raw data (stg_trading_volumes)
+- Fact table can be recalculated from staging if aggregation logic changes
+- All downstream aggregations depend on stable master table
+- Aligns with standard data warehouse best practices (similar to Airflow architecture)
 """
 import logging
 from datetime import datetime, timedelta
@@ -15,10 +32,16 @@ logger = logging.getLogger(__name__)
 
 class TradingVolumesETL:
     """
-    ETL Pipeline for trading volumes analysis
+    Master Data Architecture ETL Pipeline for trading volumes analysis
+    
+    Implements a master staging table pattern:
     - Extracts order data from source database
-    - Loads dimensions (date, clients, instruments, accounts)
-    - Aggregates orders into fact_trading_volumes_hourly
+    - Loads stg_trading_volumes (denormalized master table)
+    - Loads dimension tables (date, clients, instruments, accounts)
+    - Loads fact_trading_volumes_hourly (aggregated from staging via SQL)
+    
+    All downstream aggregation pipelines read from fact_trading_volumes_hourly,
+    providing a single source of truth for trading data analysis.
     """
     
     def __init__(self):
@@ -33,6 +56,7 @@ class TradingVolumesETL:
         )
         self.stats = {
             'orders_extracted': 0,
+            'staging_volumes_loaded': 0,
             'dim_dates_loaded': 0,
             'dim_clients_loaded': 0,
             'dim_instruments_loaded': 0,
@@ -45,6 +69,8 @@ class TradingVolumesETL:
         """
         Execute complete ETL pipeline
         
+        Flow: Extract → Stage → Load Dimensions → Load Fact Table → Load Aggregations
+        
         Args:
             days_back: Number of days to look back for orders (default: 30)
             
@@ -53,7 +79,7 @@ class TradingVolumesETL:
         """
         try:
             logger.info("=" * 80)
-            logger.info("Starting Trading Volumes ETL Pipeline")
+            logger.info("Starting Trading Volumes ETL Pipeline (Master Data Approach)")
             logger.info(f"Looking back {days_back} days")
             logger.info("=" * 80)
             
@@ -75,6 +101,11 @@ class TradingVolumesETL:
             logger.info(f"Extracted {len(orders)} orders")
             self.stats['orders_extracted'] = len(orders)
             
+            # Load staging table (master denormalized data source)
+            if not self._load_stg_trading_volumes(orders):
+                logger.error("Failed to load staging table")
+                return False
+            
             # Load dimension tables
             if not self._load_dim_date_time(orders):
                 logger.error("Failed to load dimension tables")
@@ -92,8 +123,8 @@ class TradingVolumesETL:
                 logger.error("Failed to load dim_accounts")
                 return False
             
-            # Load fact table
-            if not self._load_fact_trading_volumes(orders):
+            # Load fact table from staging table
+            if not self._load_fact_trading_volumes():
                 logger.error("Failed to load fact_trading_volumes_hourly")
                 return False
             
@@ -177,6 +208,60 @@ class TradingVolumesETL:
         except Exception as e:
             logger.error(f"Failed to extract orders: {e}")
             return []
+    
+    def _load_stg_trading_volumes(self, orders: List[Dict[str, Any]]) -> bool:
+        """
+        Load staging table (master denormalized trading data)
+        
+        This is the single source of truth for all downstream aggregations.
+        Contains all individual trades with denormalized dimensions.
+        
+        Args:
+            orders: List of order records from source database
+            
+        Returns:
+            bool: True if successful, False otherwise
+        """
+        try:
+            insert_query = """
+                INSERT INTO stg_trading_volumes 
+                (order_id, account_id, instrument_id, user_id, side, quantity, limit_price, 
+                 executed_at, account_type, first_name, last_name, instrument_code, 
+                 instrument_name, instrument_type, client_segment)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                ON CONFLICT (order_id) DO NOTHING
+            """
+            
+            count = 0
+            for order in orders:
+                params = (
+                    order['order_id'],
+                    order['account_id'],
+                    order['instrument_id'],
+                    order['user_id'],
+                    order['side'],
+                    float(order['quantity']) if order['quantity'] else 0,
+                    float(order['limit_price']) if order['limit_price'] else 0,
+                    order['executed_at'],
+                    order['account_type'],
+                    order['first_name'],
+                    order['last_name'],
+                    order['instrument_code'],
+                    order['instrument_name'],
+                    'EQUITY',  # Default type - can be enhanced with real data
+                    'STANDARD'  # Default segment - can be enhanced with real data
+                )
+                
+                if self.analytics_db.execute_query(insert_query, params):
+                    count += 1
+            
+            self.stats['staging_volumes_loaded'] = count
+            logger.info(f"Loaded {count} records into stg_trading_volumes (staging table)")
+            return True
+            
+        except Exception as e:
+            logger.error(f"Failed to load stg_trading_volumes: {e}")
+            return False
     
     def _load_dim_date_time(self, orders: List[Dict[str, Any]]) -> bool:
         """
@@ -394,72 +479,41 @@ class TradingVolumesETL:
             logger.error(f"Failed to load dim_accounts: {e}")
             return False
     
-    def _load_fact_trading_volumes(self, orders: List[Dict[str, Any]]) -> bool:
+    def _load_fact_trading_volumes(self) -> bool:
         """
-        Load fact_trading_volumes_hourly by aggregating orders
+        Load fact_trading_volumes_hourly by aggregating staging table
         
-        Args:
-            orders: List of order records
-            
+        Reads from stg_trading_volumes (master table) and creates aggregated fact table.
+        This separation allows fact table to be reprocessed if logic changes.
+        
         Returns:
             bool: True if successful, False otherwise
         """
         try:
-            # Aggregate orders by hour, instrument, and account
-            aggregates = {}
-            
-            for order in orders:
-                executed_at = order['executed_at']
-                if isinstance(executed_at, str):
-                    executed_at = datetime.fromisoformat(executed_at)
-                
-                # Create hourly key
-                hour_key = executed_at.replace(minute=0, second=0, microsecond=0)
-                
-                # Create aggregate key
-                agg_key = (
-                    hour_key,
-                    order['instrument_id'],
-                    order['account_id']
-                )
-                
-                if agg_key not in aggregates:
-                    aggregates[agg_key] = {
-                        'hour': hour_key,
-                        'instrument_id': order['instrument_id'],
-                        'account_id': order['account_id'],
-                        'user_id': order['user_id'],
-                        'trade_count': 0,
-                        'total_volume': Decimal('0'),
-                        'total_value': Decimal('0'),
-                        'prices': []
-                    }
-                
-                # Calculate trade value
-                quantity = Decimal(str(order['quantity']))
-                price = order['limit_price'] if order['limit_price'] else Decimal('0')
-                if isinstance(price, str):
-                    price = Decimal(price)
-                else:
-                    price = Decimal(str(price))
-                
-                value = quantity * price if price > 0 else Decimal('0')
-                
-                aggregates[agg_key]['trade_count'] += 1
-                aggregates[agg_key]['total_volume'] += quantity
-                aggregates[agg_key]['total_value'] += value
-                aggregates[agg_key]['prices'].append(price if price > 0 else None)
-            
-            # Get datetime keys
-            datetime_lookup = self._get_datetime_keys()
-            client_lookup = self._get_client_keys()
-            
-            # Insert aggregated data
-            insert_query = """
+            # SQL to aggregate staging table into fact table
+            # Groups by hour, instrument, and account
+            agg_query = """
                 INSERT INTO fact_trading_volumes_hourly 
                 (datetime_key, instrument_key, account_key, client_key, trade_count, 
                  total_volume, total_value, avg_price, min_price, max_price)
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                SELECT 
+                    ddt.datetime_key,
+                    di.instrument_key,
+                    da.account_key,
+                    dc.client_key,
+                    COUNT(*) as trade_count,
+                    SUM(stv.quantity) as total_volume,
+                    SUM(stv.quantity * stv.limit_price) as total_value,
+                    AVG(CASE WHEN stv.limit_price > 0 THEN stv.limit_price ELSE NULL END) as avg_price,
+                    MIN(CASE WHEN stv.limit_price > 0 THEN stv.limit_price ELSE NULL END) as min_price,
+                    MAX(CASE WHEN stv.limit_price > 0 THEN stv.limit_price ELSE NULL END) as max_price
+                FROM stg_trading_volumes stv
+                JOIN dim_date_time ddt ON DATE_TRUNC('hour', stv.executed_at) = ddt.full_datetime
+                JOIN dim_instruments di ON stv.instrument_id = di.instrument_id
+                JOIN dim_accounts da ON stv.account_id = da.account_id
+                JOIN dim_clients dc ON stv.user_id = dc.user_id
+                WHERE stv.executed_at IS NOT NULL
+                GROUP BY ddt.datetime_key, di.instrument_key, da.account_key, dc.client_key
                 ON CONFLICT (datetime_key, instrument_key, account_key) 
                 DO UPDATE SET
                     trade_count = EXCLUDED.trade_count,
@@ -470,59 +524,19 @@ class TradingVolumesETL:
                     max_price = EXCLUDED.max_price
             """
             
-            count = 0
-            for agg_key, agg_data in aggregates.items():
-                hour_key_datetime = agg_key[0]
+            # Execute aggregation
+            if self.analytics_db.execute_query(agg_query):
+                # Get count of inserted records
+                count_query = "SELECT COUNT(*) as count FROM fact_trading_volumes_hourly"
+                results = self.analytics_db.fetch_data(count_query)
+                count = results[0]['count'] if results else 0
                 
-                # Get datetime key from lookup
-                datetime_key = datetime_lookup.get(hour_key_datetime)
-                if not datetime_key:
-                    logger.warning(f"Could not find datetime key for {hour_key_datetime}")
-                    continue
-                
-                # Get instrument key
-                instrument_key = self._get_instrument_key(agg_data['instrument_id'])
-                if not instrument_key:
-                    logger.warning(f"Could not find instrument key for {agg_data['instrument_id']}")
-                    continue
-                
-                # Get account key
-                account_key = self._get_account_key(agg_data['account_id'])
-                if not account_key:
-                    logger.warning(f"Could not find account key for {agg_data['account_id']}")
-                    continue
-                
-                # Get client key
-                client_key = client_lookup.get(agg_data['user_id'])
-                if not client_key:
-                    logger.warning(f"Could not find client key for {agg_data['user_id']}")
-                    continue
-                
-                # Calculate price statistics
-                valid_prices = [p for p in agg_data['prices'] if p and p > 0]
-                avg_price = sum(valid_prices) / len(valid_prices) if valid_prices else None
-                min_price = min(valid_prices) if valid_prices else None
-                max_price = max(valid_prices) if valid_prices else None
-                
-                params = (
-                    datetime_key,
-                    instrument_key,
-                    account_key,
-                    client_key,
-                    agg_data['trade_count'],
-                    float(agg_data['total_volume']),
-                    float(agg_data['total_value']),
-                    float(avg_price) if avg_price else None,
-                    float(min_price) if min_price else None,
-                    float(max_price) if max_price else None
-                )
-                
-                if self.analytics_db.execute_query(insert_query, params):
-                    count += 1
-            
-            self.stats['fact_volumes_loaded'] = count
-            logger.info(f"Loaded {count} records into fact_trading_volumes_hourly")
-            return True
+                self.stats['fact_volumes_loaded'] = count
+                logger.info(f"Loaded {count} records into fact_trading_volumes_hourly from staging")
+                return True
+            else:
+                logger.error("Failed to execute fact table aggregation query")
+                return False
             
         except Exception as e:
             logger.error(f"Failed to load fact_trading_volumes_hourly: {e}", exc_info=True)

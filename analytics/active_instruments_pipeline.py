@@ -1,7 +1,12 @@
 """
-Active Instruments ETL Pipeline
-Aggregates trading data to identify most active instruments, volatility, and trading ratios
-Populates agg_instrument_activity table
+Active Instruments Aggregation Pipeline
+Derives insights from the master fact table (fact_trading_volumes_hourly).
+Aggregates trading data to identify most active instruments by date.
+
+Architecture:
+- Reads from: fact_trading_volumes_hourly (master fact table)
+- Writes to: agg_instrument_activity
+- All data is aggregated from the stable master fact table
 """
 import logging
 from datetime import datetime, timedelta
@@ -15,10 +20,12 @@ logger = logging.getLogger(__name__)
 
 class ActiveInstrumentsPipeline:
     """
-    ETL Pipeline for active instruments analysis
-    - Aggregates fact_trading_volumes_hourly by instrument and date
-    - Calculates metrics: trades, volume, value, unique clients, activity ranking
-    - Identifies most active instruments and volatility metrics
+    Aggregation pipeline for active instruments analysis.
+    
+    Reads from master fact table and creates daily instrument activity aggregations.
+    Calculates metrics: trades, volume, value, unique clients, activity ranking.
+    
+    Data flow: fact_trading_volumes_hourly → agg_instrument_activity
     """
     
     def __init__(self):

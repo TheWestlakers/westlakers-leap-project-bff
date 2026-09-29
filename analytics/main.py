@@ -1,10 +1,25 @@
 """
-Main entry point for ETL pipeline execution
-Orchestrates all analytics pipelines:
-1. Trading Volumes - Hourly aggregation by instrument, account, client
-2. Active Instruments - Daily top instruments, volatility, unique clients
-3. Client Activity Trends - Daily client engagement and trading patterns
-4. Client Segment Analysis - Daily segment performance and retention
+ETL Pipeline Orchestrator - Master Data Table Architecture
+Manages end-to-end analytics data pipeline with master staging and fact tables.
+
+Pipeline Execution Flow:
+1. Trading Volumes ETL (Master Data)
+   - Extracts orders from source database
+   - Loads stg_trading_volumes (denormalized master staging table)
+   - Loads dimensions (date, clients, instruments, accounts)
+   - Aggregates stg_trading_volumes into fact_trading_volumes_hourly (master fact table)
+
+2. Aggregation Pipelines (Derive from Master Fact Table)
+   - Active Instruments: Daily instrument activity from fact_trading_volumes_hourly
+   - Client Activity Trends: Daily client engagement from fact_trading_volumes_hourly
+   - Client Segment Analysis: Daily segment performance from fact_trading_volumes_hourly
+
+Benefits:
+- Single source of truth: stg_trading_volumes (staging) + fact_trading_volumes_hourly (facts)
+- All aggregations derive from stable master fact table
+- Fact table can be reprocessed without re-extracting from source
+- Aligns with Airflow/dbt best practices
+- Clear data lineage and dependencies
 """
 import logging
 import sys
