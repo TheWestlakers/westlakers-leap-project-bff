@@ -22,10 +22,12 @@ public class UserDTO {
     
     @NotBlank(message = "First name is required")
     @Size(min = 1, max = 100, message = "First name must be between 1 and 100 characters")
+    @Pattern(regexp = "^[a-zA-Z\\s'-]+$", message = "First name cannot contain numbers")
     private String firstName;
     
     @NotBlank(message = "Last name is required")
     @Size(min = 1, max = 100, message = "Last name must be between 1 and 100 characters")
+    @Pattern(regexp = "^[a-zA-Z\\s'-]+$", message = "Last name cannot contain numbers")
     private String lastName;
     
     @NotBlank(message = "Phone number is required")
