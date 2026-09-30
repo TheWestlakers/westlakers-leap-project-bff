@@ -392,9 +392,11 @@ class TradingVolumesETL:
                     i.instrument_id,
                     i.ticker,
                     i.name,
-                    ac.class_name as instrument_type
+                    ac.class_name as instrument_type,
+                    m.market_name as exchange
                 FROM instruments i
                 JOIN asset_classes ac ON i.asset_class_id = ac.asset_class_id
+                JOIN markets m ON i.market_id = m.market_id
                 ORDER BY i.instrument_id
             """
             
@@ -402,8 +404,8 @@ class TradingVolumesETL:
             
             insert_query = """
                 INSERT INTO dim_instruments 
-                (instrument_id, instrument_code, instrument_name, instrument_type)
-                VALUES (%s, %s, %s, %s)
+                (instrument_id, instrument_code, instrument_name, instrument_type, exchange)
+                VALUES (%s, %s, %s, %s, %s)
                 ON CONFLICT (instrument_id) DO NOTHING
             """
             
@@ -413,7 +415,8 @@ class TradingVolumesETL:
                     inst['instrument_id'],
                     inst['ticker'],
                     inst['name'],
-                    inst['instrument_type']
+                    inst['instrument_type'],
+                    inst['exchange']
                 )
                 
                 if self.analytics_db.execute_query(insert_query, params):
@@ -435,7 +438,6 @@ class TradingVolumesETL:
                     a.account_id,
                     a.user_id,
                     at.type_name as account_type,
-                    'USD' as currency,
                     a.created_at
                 FROM accounts a
                 JOIN account_types at ON a.account_type_id = at.account_type_id
@@ -447,11 +449,10 @@ class TradingVolumesETL:
             
             insert_query = """
                 INSERT INTO dim_accounts 
-                (account_id, client_key, account_type, currency, created_date)
+                (account_id, client_key, account_type, created_date)
                 VALUES (
                     %s,
                     (SELECT client_key FROM dim_clients WHERE user_id = %s),
-                    %s,
                     %s,
                     %s
                 )
@@ -464,7 +465,6 @@ class TradingVolumesETL:
                     acc['account_id'],
                     acc['user_id'],
                     acc['account_type'],
-                    acc['currency'],
                     acc['created_at']
                 )
                 
