@@ -31,6 +31,7 @@ CREATE TABLE IF NOT EXISTS dim_instruments (
     instrument_code VARCHAR(20),
     instrument_name VARCHAR(255),
     instrument_type VARCHAR(50),
+    exchange VARCHAR(50),
     created_date TIMESTAMP
 );
 
@@ -51,7 +52,6 @@ CREATE TABLE IF NOT EXISTS dim_accounts (
     account_id BIGINT NOT NULL UNIQUE,
     client_key INT REFERENCES dim_clients(client_key),
     account_type VARCHAR(50),
-    currency VARCHAR(3),
     created_date TIMESTAMP
 );
 
