@@ -5,6 +5,7 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import javax.validation.constraints.*;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
@@ -22,11 +23,25 @@ import com.westlakers.leap_bff.entities.AccountStatus;
 @Builder
 public class AccountDTO {
     private Long accountId;
+    
+    @NotNull(message = "User ID is required")
+    @Positive(message = "User ID must be a positive number")
     private Long userId;
+    
+    @NotNull(message = "Account type ID is required")
+    @Positive(message = "Account type ID must be a positive number")
     private Long accountTypeId;
+    
+    @PastOrPresent(message = "Created date cannot be in the future")
     private LocalDateTime createdAt;
+    
+    @DecimalMin(value = "0.0", inclusive = true, message = "Settled cash cannot be negative")
     private BigDecimal settledCash;
+    
+    @NotBlank(message = "Status name is required")
     private String statusName;
+    
+    @Positive(message = "Status ID must be a positive number")
     private Long statusId;
 
     /**
