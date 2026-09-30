@@ -44,4 +44,4 @@ class ETLConfig:
     BATCH_SIZE = int(os.getenv('BATCH_SIZE', 1000))
     ENABLE_DATA_PROFILING = os.getenv('ENABLE_DATA_PROFILING', 'true').lower() == 'true'
     LOG_LEVEL = os.getenv('LOG_LEVEL', 'INFO')
-    LOG_FILE = os.getenv('LOG_FILE', 'etl_pipeline.log')
+    LOG_FILE = os.getenv('LOG_FILE', None)

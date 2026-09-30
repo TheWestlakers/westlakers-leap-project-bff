@@ -393,7 +393,7 @@ class TradingVolumesETL:
                     i.ticker,
                     i.name,
                     ac.class_name as instrument_type,
-                    m.market_name as exchange
+                    m.market_code as market
                 FROM instruments i
                 JOIN asset_classes ac ON i.asset_class_id = ac.asset_class_id
                 JOIN markets m ON i.market_id = m.market_id
@@ -404,7 +404,7 @@ class TradingVolumesETL:
             
             insert_query = """
                 INSERT INTO dim_instruments 
-                (instrument_id, instrument_code, instrument_name, instrument_type, exchange)
+                (instrument_id, instrument_code, instrument_name, instrument_type, market)
                 VALUES (%s, %s, %s, %s, %s)
                 ON CONFLICT (instrument_id) DO NOTHING
             """
@@ -416,7 +416,7 @@ class TradingVolumesETL:
                     inst['ticker'],
                     inst['name'],
                     inst['instrument_type'],
-                    inst['exchange']
+                    inst['market']
                 )
                 
                 if self.analytics_db.execute_query(insert_query, params):
