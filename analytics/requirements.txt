@@ -1,0 +1,4 @@
+psycopg2-binary==2.9.13
+pandas==3.0.3
+python-dotenv==1.2.3
+sqlalchemy==2.0.54
