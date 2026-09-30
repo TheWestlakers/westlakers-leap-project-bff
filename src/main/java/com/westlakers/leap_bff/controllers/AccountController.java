@@ -2,6 +2,7 @@ package com.westlakers.leap_bff.controllers;
 
 import java.util.List;
 
+import javax.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -49,64 +50,21 @@ public class AccountController {
         return this.accountService.getAccountsByUserId(userId);
     }
 
-    @GetMapping("/accounts/{id}/validate")
-    public ResponseEntity<String> validateAccountExists(@PathVariable Long id) {
-        try {
-            this.accountService.getAccountById(id);
-            return ResponseEntity.ok()
-                .header("X-Account-Status", "VALID")
-                .body("Account exists and is valid");
-        } catch (RuntimeException e) {
-            return ResponseEntity.status(HttpStatus.NOT_FOUND)
-                .body("Account not found with id: " + id);
-        }
-    }
-
-    @GetMapping("/accounts/{id}/status")
-    public ResponseEntity<String> checkAccountStatus(@PathVariable Long id) {
-        try {
-            AccountDTO account = this.accountService.getAccountById(id);
-            return ResponseEntity.ok()
-                .body("Account status: " + account.getStatusName());
-        } catch (RuntimeException e) {
-            return ResponseEntity.badRequest()
-                .body("Unable to retrieve account status: " + e.getMessage());
-        }
-    }
-
     @PostMapping("/accounts")
-    public ResponseEntity<String> createAccount(@RequestBody Account account) {
-        try {
-            AccountDTO createdAccount = this.accountService.createAccount(account);
-            return ResponseEntity.status(HttpStatus.CREATED)
-                .body("Account created successfully with ID: " + createdAccount.getAccountId());
-        } catch (RuntimeException e) {
-            return ResponseEntity.badRequest()
-                .body("Failed to create account: " + e.getMessage());
-        }
+    public ResponseEntity<AccountDTO> createAccount(@Valid @RequestBody Account account) {
+        AccountDTO createdAccount = this.accountService.createAccount(account);
+        return ResponseEntity.status(HttpStatus.CREATED).body(createdAccount);
     }
 
     @PatchMapping("/accounts/{id}")
-    public ResponseEntity<String> updateAccount(@PathVariable Long id, @RequestBody Account account) {
-        try {
-            AccountDTO updatedAccount = this.accountService.updateAccount(id, account);
-            return ResponseEntity.ok()
-                .body("Account updated successfully with ID: " + updatedAccount.getAccountId());
-        } catch (RuntimeException e) {
-            return ResponseEntity.badRequest()
-                .body("Failed to update account: " + e.getMessage());
-        }
+    public ResponseEntity<AccountDTO> updateAccount(@PathVariable Long id, @Valid @RequestBody Account account) {
+        AccountDTO updatedAccount = this.accountService.updateAccount(id, account);
+        return ResponseEntity.ok(updatedAccount);
     }
 
     @DeleteMapping("/accounts/{id}")
-    public ResponseEntity<String> deleteAccount(@PathVariable Long id) {
-        try {
-            this.accountService.deleteAccount(id);
-            return ResponseEntity.ok()
-                .body("Account deleted successfully with ID: " + id);
-        } catch (RuntimeException e) {
-            return ResponseEntity.badRequest()
-                .body("Failed to delete account: " + e.getMessage());
-        }
+    public ResponseEntity<Void> deleteAccount(@PathVariable Long id) {
+        this.accountService.deleteAccount(id);
+        return ResponseEntity.noContent().build();
     }
 }
