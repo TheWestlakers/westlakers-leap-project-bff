@@ -3,11 +3,13 @@ Configuration management for ETL pipeline
 Handles environment variables and database connection settings
 """
 import os
+from pathlib import Path
 from dotenv import load_dotenv
 from typing import Dict, Any
 
-# Load environment variables from .env file
-load_dotenv()
+# Load environment variables from root .env file
+root_env_path = Path(__file__).parent.parent / '.env'
+load_dotenv(dotenv_path=root_env_path)
 
 
 class DatabaseConfig:
