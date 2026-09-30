@@ -38,3 +38,10 @@ build/
 ### Local Spring Boot overrides ###
 application-dev-local.properties
 config/application-dev-local.properties
+
+### Python ###
+__pycache__/
+*.py[cod]
+*$py.class
+.Python
+*.log
