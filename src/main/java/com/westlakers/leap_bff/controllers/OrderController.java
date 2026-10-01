@@ -31,23 +31,23 @@ public class OrderController {
     }
 
     @GetMapping("/orders")
-    public List<OrderDTO> getAllOrders() {
-        return this.orderService.getAllOrders();
+    public ResponseEntity<List<OrderDTO>> getAllOrders() {
+        return ResponseEntity.ok(this.orderService.getAllOrders());
     }
 
     @GetMapping("/orders/{id}")
-    public OrderDTO getOrderById(@PathVariable Long id) {
-        return this.orderService.getOrderById(id);
+    public ResponseEntity<OrderDTO> getOrderById(@PathVariable Long id) {
+        return ResponseEntity.ok(this.orderService.getOrderById(id));
     }
 
     @GetMapping("/orders/{id}/profile")
-    public OrderProfileDTO getOrderProfile(@PathVariable Long id) {
-        return this.orderService.getOrderProfile(id);
+    public ResponseEntity<OrderProfileDTO> getOrderProfile(@PathVariable Long id) {
+        return ResponseEntity.ok(this.orderService.getOrderProfile(id));
     }
 
     @GetMapping("/accounts/{accountId}/orders")
-    public List<OrderDTO> getOrdersByAccountId(@PathVariable Long accountId) {
-        return this.orderService.getOrdersByAccountId(accountId);
+    public ResponseEntity<List<OrderDTO>> getOrdersByAccountId(@PathVariable Long accountId) {
+        return ResponseEntity.ok(this.orderService.getOrdersByAccountId(accountId));
     }
 
     @GetMapping("/orders/{id}/validate")
