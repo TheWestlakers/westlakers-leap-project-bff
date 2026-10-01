@@ -51,17 +51,15 @@ public class OrderController {
     }
 
     @GetMapping("/orders/{id}/validate")
-    public ResponseEntity<OrderDTO> validateOrderExists(@PathVariable Long id) {
-        OrderDTO order = this.orderService.getOrderById(id);
-        return ResponseEntity.ok()
-            .header("X-Order-Status", "VALID")
-            .body(order);
+    public ResponseEntity<String> validateOrderExists(@PathVariable Long id) {
+        this.orderService.getOrderById(id);
+        return ResponseEntity.ok("VALID");
     }
 
     @GetMapping("/orders/{id}/status")
-    public ResponseEntity<OrderDTO> checkOrderStatus(@PathVariable Long id) {
+    public ResponseEntity<String> checkOrderStatus(@PathVariable Long id) {
         OrderDTO order = this.orderService.getOrderById(id);
-        return ResponseEntity.ok(order);
+        return ResponseEntity.ok(order.getStatusName());
     }
 
     @PostMapping("/orders")
