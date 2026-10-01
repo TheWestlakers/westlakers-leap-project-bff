@@ -13,6 +13,8 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import jakarta.validation.Valid;
+
 import com.westlakers.leap_bff.dtos.OrderDTO;
 import com.westlakers.leap_bff.dtos.OrderProfileDTO;
 import com.westlakers.leap_bff.entities.Order;
@@ -49,63 +51,34 @@ public class OrderController {
     }
 
     @GetMapping("/orders/{id}/validate")
-    public ResponseEntity<String> validateOrderExists(@PathVariable Long id) {
-        try {
-            this.orderService.getOrderById(id);
-            return ResponseEntity.ok()
-                .header("X-Order-Status", "VALID")
-                .body("Order exists and is valid");
-        } catch (RuntimeException e) {
-            return ResponseEntity.status(HttpStatus.NOT_FOUND)
-                .body("Order not found with id: " + id);
-        }
+    public ResponseEntity<OrderDTO> validateOrderExists(@PathVariable Long id) {
+        OrderDTO order = this.orderService.getOrderById(id);
+        return ResponseEntity.ok()
+            .header("X-Order-Status", "VALID")
+            .body(order);
     }
 
     @GetMapping("/orders/{id}/status")
-    public ResponseEntity<String> checkOrderStatus(@PathVariable Long id) {
-        try {
-            OrderDTO order = this.orderService.getOrderById(id);
-            return ResponseEntity.ok()
-                .body("Order status: " + order.getStatusName());
-        } catch (RuntimeException e) {
-            return ResponseEntity.badRequest()
-                .body("Unable to retrieve order status: " + e.getMessage());
-        }
+    public ResponseEntity<OrderDTO> checkOrderStatus(@PathVariable Long id) {
+        OrderDTO order = this.orderService.getOrderById(id);
+        return ResponseEntity.ok(order);
     }
 
     @PostMapping("/orders")
-    public ResponseEntity<String> createOrder(@RequestBody Order order) {
-        try {
-            OrderDTO createdOrder = this.orderService.createOrder(order);
-            return ResponseEntity.status(HttpStatus.CREATED)
-                .body("Order created successfully with ID: " + createdOrder.getOrderId());
-        } catch (RuntimeException e) {
-            return ResponseEntity.badRequest()
-                .body("Failed to create order: " + e.getMessage());
-        }
+    public ResponseEntity<OrderDTO> createOrder(@Valid @RequestBody Order order) {
+        OrderDTO createdOrder = this.orderService.createOrder(order);
+        return ResponseEntity.status(HttpStatus.CREATED).body(createdOrder);
     }
 
     @PatchMapping("/orders/{id}")
-    public ResponseEntity<String> updateOrder(@PathVariable Long id, @RequestBody Order order) {
-        try {
-            OrderDTO updatedOrder = this.orderService.updateOrder(id, order);
-            return ResponseEntity.ok()
-                .body("Order updated successfully with ID: " + updatedOrder.getOrderId());
-        } catch (RuntimeException e) {
-            return ResponseEntity.badRequest()
-                .body("Failed to update order: " + e.getMessage());
-        }
+    public ResponseEntity<OrderDTO> updateOrder(@PathVariable Long id, @Valid @RequestBody Order order) {
+        OrderDTO updatedOrder = this.orderService.updateOrder(id, order);
+        return ResponseEntity.ok(updatedOrder);
     }
 
     @DeleteMapping("/orders/{id}")
-    public ResponseEntity<String> deleteOrder(@PathVariable Long id) {
-        try {
-            this.orderService.deleteOrder(id);
-            return ResponseEntity.ok()
-                .body("Order deleted successfully with ID: " + id);
-        } catch (RuntimeException e) {
-            return ResponseEntity.badRequest()
-                .body("Failed to delete order: " + e.getMessage());
-        }
+    public ResponseEntity<Void> deleteOrder(@PathVariable Long id) {
+        this.orderService.deleteOrder(id);
+        return ResponseEntity.noContent().build();
     }
 }
