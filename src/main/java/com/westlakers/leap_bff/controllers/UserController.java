@@ -2,19 +2,17 @@ package com.westlakers.leap_bff.controllers;
 
 import java.util.List;
 
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
+import jakarta.validation.Valid;
 
 import com.westlakers.leap_bff.dtos.UserDTO;
 import com.westlakers.leap_bff.dtos.UserProfileDTO;
-
 import com.westlakers.leap_bff.services.UserService;
 
-
 @RestController 
-@RequestMapping("/api")
+@RequestMapping("/api/users")
 public class UserController {
     private final UserService userService;
 
@@ -22,18 +20,37 @@ public class UserController {
         this.userService = userService;
     }
 
-    @GetMapping("/users")
-    public List<UserDTO> getAllUsers() {
-        return this.userService.getAllUsers();
+    @GetMapping
+    public ResponseEntity<List<UserDTO>> getAllUsers() {
+        return new ResponseEntity<>(this.userService.getAllUsers(), HttpStatus.OK);
     }
 
-    @GetMapping("/users/{id}")
-    public UserDTO getUserById(@PathVariable Long id) {
-        return this.userService.getUserById(id);
+    @GetMapping("/{id}")
+    public ResponseEntity<UserDTO> getUserById(@PathVariable Long id) {
+        return new ResponseEntity<>(this.userService.getUserById(id), HttpStatus.OK);
     }
 
-    @GetMapping("/users/{id}/profile")
-    public UserProfileDTO getUserProfile(@PathVariable Long id) {
-        return this.userService.getUserProfile(id);
+    @GetMapping("/{id}/profile")
+    public ResponseEntity<UserProfileDTO> getUserProfile(@PathVariable Long id) {
+        return new ResponseEntity<>(this.userService.getUserProfile(id), HttpStatus.OK);
+    }
+
+    @PostMapping
+    public ResponseEntity<UserDTO> createUser(@Valid @RequestBody UserDTO userDTO) {
+        UserDTO createdUser = this.userService.createUser(userDTO);
+        return new ResponseEntity<>(createdUser, HttpStatus.CREATED);
+    }
+
+
+    @PatchMapping("/{id}")
+    public ResponseEntity<UserDTO> updateUser(@PathVariable Long id, @Valid @RequestBody UserDTO userDTO) {
+        UserDTO updatedUser = this.userService.updateUser(id, userDTO);
+        return new ResponseEntity<>(updatedUser, HttpStatus.OK);
+    }
+
+    @DeleteMapping("/{id}")
+    public ResponseEntity<Void> deleteUser(@PathVariable Long id) {
+        this.userService.deleteUser(id);
+        return new ResponseEntity<>(HttpStatus.NO_CONTENT);
     }
 }
