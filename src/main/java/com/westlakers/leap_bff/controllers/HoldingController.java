@@ -13,6 +13,8 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import jakarta.validation.Valid;
+
 import com.westlakers.leap_bff.dtos.HoldingDTO;
 import com.westlakers.leap_bff.entities.Holding;
 import com.westlakers.leap_bff.services.HoldingService;
@@ -43,63 +45,34 @@ public class HoldingController {
     }
 
     @GetMapping("/holdings/{id}/validate")
-    public ResponseEntity<String> validateHoldingExists(@PathVariable Long id) {
-        try {
-            this.holdingService.getHoldingById(id);
-            return ResponseEntity.ok()
-                .header("X-Holding-Status", "VALID")
-                .body("Holding exists and is valid");
-        } catch (RuntimeException e) {
-            return ResponseEntity.status(HttpStatus.NOT_FOUND)
-                .body("Holding not found with id: " + id);
-        }
+    public ResponseEntity<HoldingDTO> validateHoldingExists(@PathVariable Long id) {
+        HoldingDTO holding = this.holdingService.getHoldingById(id);
+        return ResponseEntity.ok()
+            .header("X-Holding-Status", "VALID")
+            .body(holding);
     }
 
     @GetMapping("/holdings/{id}/details")
-    public ResponseEntity<String> checkHoldingDetails(@PathVariable Long id) {
-        try {
-            HoldingDTO holding = this.holdingService.getHoldingById(id);
-            return ResponseEntity.ok()
-                .body("Holding quantity: " + holding.getQuantity() + ", Average price: " + holding.getAveragePrice());
-        } catch (RuntimeException e) {
-            return ResponseEntity.badRequest()
-                .body("Unable to retrieve holding details: " + e.getMessage());
-        }
+    public ResponseEntity<HoldingDTO> checkHoldingDetails(@PathVariable Long id) {
+        HoldingDTO holding = this.holdingService.getHoldingById(id);
+        return ResponseEntity.ok(holding);
     }
 
     @PostMapping("/holdings")
-    public ResponseEntity<String> createHolding(@RequestBody Holding holding) {
-        try {
-            HoldingDTO createdHolding = this.holdingService.createHolding(holding);
-            return ResponseEntity.status(HttpStatus.CREATED)
-                .body("Holding created successfully with ID: " + createdHolding.getHoldingId());
-        } catch (RuntimeException e) {
-            return ResponseEntity.badRequest()
-                .body("Failed to create holding: " + e.getMessage());
-        }
+    public ResponseEntity<HoldingDTO> createHolding(@Valid @RequestBody Holding holding) {
+        HoldingDTO createdHolding = this.holdingService.createHolding(holding);
+        return ResponseEntity.status(HttpStatus.CREATED).body(createdHolding);
     }
 
     @PatchMapping("/holdings/{id}")
-    public ResponseEntity<String> updateHolding(@PathVariable Long id, @RequestBody Holding holding) {
-        try {
-            HoldingDTO updatedHolding = this.holdingService.updateHolding(id, holding);
-            return ResponseEntity.ok()
-                .body("Holding updated successfully with ID: " + updatedHolding.getHoldingId());
-        } catch (RuntimeException e) {
-            return ResponseEntity.badRequest()
-                .body("Failed to update holding: " + e.getMessage());
-        }
+    public ResponseEntity<HoldingDTO> updateHolding(@PathVariable Long id, @Valid @RequestBody Holding holding) {
+        HoldingDTO updatedHolding = this.holdingService.updateHolding(id, holding);
+        return ResponseEntity.ok(updatedHolding);
     }
 
     @DeleteMapping("/holdings/{id}")
-    public ResponseEntity<String> deleteHolding(@PathVariable Long id) {
-        try {
-            this.holdingService.deleteHolding(id);
-            return ResponseEntity.ok()
-                .body("Holding deleted successfully with ID: " + id);
-        } catch (RuntimeException e) {
-            return ResponseEntity.badRequest()
-                .body("Failed to delete holding: " + e.getMessage());
-        }
+    public ResponseEntity<Void> deleteHolding(@PathVariable Long id) {
+        this.holdingService.deleteHolding(id);
+        return ResponseEntity.noContent().build();
     }
 }
