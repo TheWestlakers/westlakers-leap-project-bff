@@ -87,4 +87,75 @@ public class OrderService {
 
         return OrderProfileDTO.fromEntities(order, orderStatus);
     }
+
+    @Transactional
+    public OrderDTO createOrder(Order order) {
+        // Validate required fields
+        if(order.getAccountId() == null) {
+            throw new RuntimeException("Account ID is required");
+        }
+        if(order.getInstrumentId() == null) {
+            throw new RuntimeException("Instrument ID is required");
+        }
+        if(order.getSide() == null || order.getSide().isEmpty()) {
+            throw new RuntimeException("Side is required (BUY or SELL)");
+        }
+        if(order.getOrderType() == null || order.getOrderType().isEmpty()) {
+            throw new RuntimeException("Order Type is required");
+        }
+        if(order.getQuantity() == null) {
+            throw new RuntimeException("Quantity is required");
+        }
+        if(order.getStatus() == null) {
+            throw new RuntimeException("Status ID is required");
+        }
+
+        // Insert the order
+        int result = this.orderMapper.insert(order);
+        if(result == 0) {
+            throw new RuntimeException("Failed to create order");
+        }
+
+        // Fetch and return the created order
+        OrderStatus orderStatus = orderStatusMapper.findById(order.getStatus());
+        return OrderDTO.fromEntity(order, orderStatus);
+    }
+
+    @Transactional
+    public OrderDTO updateOrder(Long orderId, Order updatedOrder) {
+        // Verify order exists
+        Order existingOrder = this.orderMapper.findById(orderId);
+        if(existingOrder == null) {
+            throw new RuntimeException("Order not found with id: " + orderId);
+        }
+
+        // Set the order ID to ensure we're updating the correct record
+        updatedOrder.setOrderId(orderId);
+
+        // Update the order
+        int result = this.orderMapper.update(updatedOrder);
+        if(result == 0) {
+            throw new RuntimeException("Failed to update order with id: " + orderId);
+        }
+
+        // Fetch and return the updated order
+        Order updated = this.orderMapper.findById(orderId);
+        OrderStatus orderStatus = orderStatusMapper.findById(updated.getStatus());
+        return OrderDTO.fromEntity(updated, orderStatus);
+    }
+
+    @Transactional
+    public void deleteOrder(Long orderId) {
+        // Verify order exists
+        Order order = this.orderMapper.findById(orderId);
+        if(order == null) {
+            throw new RuntimeException("Order not found with id: " + orderId);
+        }
+
+        // Delete the order
+        int result = this.orderMapper.delete(orderId);
+        if(result == 0) {
+            throw new RuntimeException("Failed to delete order with id: " + orderId);
+        }
+    }
 }
