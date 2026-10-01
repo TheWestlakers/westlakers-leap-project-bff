@@ -6,6 +6,7 @@ import java.util.stream.Collectors;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+
 import com.westlakers.leap_bff.mappers.UserMapper;
 import com.westlakers.leap_bff.mappers.UserCredentialsMapper;
 import com.westlakers.leap_bff.mappers.RoleMapper;
@@ -17,7 +18,7 @@ import com.westlakers.leap_bff.entities.UserStatus;
 import com.westlakers.leap_bff.dtos.UserDTO;
 import com.westlakers.leap_bff.dtos.UserProfileDTO;
 
-@Service 
+@Service
 public class UserService {
 
     private final UserMapper userMapper;
@@ -33,14 +34,14 @@ public class UserService {
         this.userStatusMapper = userStatusMapper;
     }
 
-
     @Transactional(readOnly = true)
     public List<UserDTO> getAllUsers() {
         List<User> users = this.userMapper.findAll();
         
-        if(users.size() == 0) {
-            throw new RuntimeException("List was zero");
+        if(users.isEmpty()) {
+            throw new IllegalStateException("No users available in the system");
         }
+                
         // Convert User entities to DTOs, fetching status for each user
         return users.stream()
                 .map(user -> {
@@ -52,36 +53,112 @@ public class UserService {
 
     @Transactional(readOnly = true)
     public UserDTO getUserById(Long id) {
+        if(id == null || id <= 0) {
+            throw new IllegalArgumentException("User ID must be positive");
+        }
+        
         User user = this.userMapper.findById(id);
 
         if(user == null) {
-            throw new RuntimeException("User not found with id: " + id);
+            throw new IllegalStateException("User not found with id: " + id);
         }
         
         UserStatus userStatus = userStatusMapper.findById(user.getStatusId());
         return UserDTO.fromEntity(user, userStatus);
     }
 
-    /**
-     * Get complete user profile as a flattened DTO containing all user information
-     * including credentials and role details.
-     */
     @Transactional(readOnly = true)
     public UserProfileDTO getUserProfile(Long userId) {
+        if(userId == null || userId <= 0) {
+            throw new IllegalArgumentException("User ID must be positive");
+        }
+        
         User user = this.userMapper.findById(userId);
         
         if(user == null) {
-            throw new RuntimeException("User not found with id: " + userId);
+            throw new IllegalStateException("User not found with id: " + userId);
         }
         
         UserCredentials credentials = credentialsMapper.findByUserId(userId);
         if(credentials == null) {
-            throw new RuntimeException("Credentials not found for user id: " + userId);
+            throw new IllegalStateException("Credentials not found for user id: " + userId);
         }
         
         Role role = roleMapper.findById(credentials.getRoleId());
+        if(role == null) {
+            throw new IllegalStateException("Role not found with id: " + credentials.getRoleId());
+        }
+        
         UserStatus userStatus = userStatusMapper.findById(user.getStatusId());
+        if(userStatus == null) {
+            throw new IllegalStateException("User status not found with id: " + user.getStatusId());
+        }
         
         return UserProfileDTO.fromEntities(user, credentials, userStatus, role);
+    }
+
+    @Transactional
+    public UserDTO createUser(UserDTO userDTO) {        
+        User user = new User();
+        user.setFirstName(userDTO.getFirstName());
+        user.setLastName(userDTO.getLastName());
+        user.setPhoneNumber(userDTO.getPhoneNumber());
+        user.setTaxId(userDTO.getTaxId());
+        user.setDateOfBirth(userDTO.getDateOfBirth());
+        user.setStatusId(userDTO.getStatusId());
+        
+        int result = this.userMapper.insert(user);
+        if(result == 0) {
+            throw new IllegalStateException("Failed to create user");
+        }
+        
+        UserStatus userStatus = userStatusMapper.findById(user.getStatusId());
+        return UserDTO.fromEntity(user, userStatus);
+    }
+
+    @Transactional
+    public UserDTO updateUser(Long id, UserDTO userDTO) {
+        if(id == null || id <= 0) {
+            throw new IllegalArgumentException("User ID must be positive");
+        }
+        
+        User existingUser = this.userMapper.findById(id);
+        
+        if(existingUser == null) {
+            throw new IllegalStateException("User not found with id: " + id);
+        }
+        
+        existingUser.setFirstName(userDTO.getFirstName());
+        existingUser.setLastName(userDTO.getLastName());
+        existingUser.setPhoneNumber(userDTO.getPhoneNumber());
+        existingUser.setTaxId(userDTO.getTaxId());
+        existingUser.setDateOfBirth(userDTO.getDateOfBirth());
+        existingUser.setStatusId(userDTO.getStatusId());
+        
+        int result = this.userMapper.update(existingUser);
+        if(result == 0) {
+            throw new IllegalStateException("Failed to update user");
+        }
+        
+        UserStatus userStatus = userStatusMapper.findById(existingUser.getStatusId());
+        return UserDTO.fromEntity(existingUser, userStatus);
+    }
+
+    @Transactional
+    public void deleteUser(Long id) {
+        if(id == null || id <= 0) {
+            throw new IllegalArgumentException("User ID must be positive");
+        }
+        
+        User user = this.userMapper.findById(id);
+        
+        if(user == null) {
+            throw new IllegalStateException("User not found with id: " + id);
+        }
+        
+        int result = this.userMapper.delete(id);
+        if(result == 0) {
+            throw new IllegalStateException("Failed to delete user");
+        }
     }
 }
