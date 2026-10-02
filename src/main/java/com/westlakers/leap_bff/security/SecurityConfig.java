@@ -30,6 +30,7 @@ public class SecurityConfig {
                 auth
                     .requestMatchers("/api/auth/login").permitAll()
                     .requestMatchers("/public").permitAll()
+                    .requestMatchers("/actuator/health").permitAll()
                     .requestMatchers("/private").authenticated()
                     .anyRequest().authenticated()
             )
