@@ -9,6 +9,8 @@ import org.springframework.transaction.annotation.Transactional;
 import com.westlakers.leap_bff.mappers.HoldingMapper;
 import com.westlakers.leap_bff.entities.Holding;
 import com.westlakers.leap_bff.dtos.HoldingDTO;
+import java.math.BigDecimal;
+
 
 @Service
 public class HoldingService {
@@ -68,8 +70,14 @@ public class HoldingService {
         if(holding.getQuantity() == null) {
             throw new RuntimeException("Quantity is required");
         }
+        if(holding.getQuantity().compareTo(BigDecimal.ZERO) <= 0) {
+            throw new RuntimeException("Quantity must be greater than zero");
+        }
         if(holding.getAveragePrice() == null) {
             throw new RuntimeException("Average Price is required");
+        }
+        if(holding.getAveragePrice().compareTo(BigDecimal.ZERO) <= 0) {
+            throw new RuntimeException("Average Price must be greater than zero");
         }
 
         // Insert the holding

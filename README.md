@@ -60,3 +60,13 @@ ssh -N -L 5433:localhost:5432 <user>@<host ip>
 mvn spring-boot:run
 ```
 
+## Testing
+
+To run all tests, execute the command: 
+
+```bash
+mvn clean verify
+```
+
+All test reports are generated in `target/surefire-reports/`.
+
