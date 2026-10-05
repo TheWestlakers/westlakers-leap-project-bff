@@ -12,6 +12,8 @@ import com.westlakers.leap_bff.entities.Order;
 import com.westlakers.leap_bff.entities.OrderStatus;
 import com.westlakers.leap_bff.dtos.OrderDTO;
 import com.westlakers.leap_bff.dtos.OrderProfileDTO;
+import java.math.BigDecimal;
+
 
 @Service
 public class OrderService {
@@ -100,11 +102,17 @@ public class OrderService {
         if(order.getSide() == null || order.getSide().isEmpty()) {
             throw new RuntimeException("Side is required (BUY or SELL)");
         }
+        if(!order.getSide().equals("BUY") && !order.getSide().equals("SELL")) {
+            throw new RuntimeException("Side must be either BUY or SELL");
+        }
         if(order.getOrderType() == null || order.getOrderType().isEmpty()) {
             throw new RuntimeException("Order Type is required");
         }
         if(order.getQuantity() == null) {
             throw new RuntimeException("Quantity is required");
+        }
+        if(order.getQuantity().compareTo(BigDecimal.ZERO) <= 0) {
+            throw new RuntimeException("Quantity must be greater than zero");
         }
         if(order.getStatus() == null) {
             throw new RuntimeException("Status ID is required");
