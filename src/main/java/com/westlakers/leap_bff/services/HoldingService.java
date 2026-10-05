@@ -1,5 +1,7 @@
 package com.westlakers.leap_bff.services;
 
+import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -116,6 +118,113 @@ public class HoldingService {
         int result = this.holdingMapper.delete(holdingId);
         if(result == 0) {
             throw new RuntimeException("Failed to delete holding with id: " + holdingId);
+        }
+    }
+
+    @Transactional
+    public HoldingDTO upsertHoldingOnTrade(Long accountId, Long instrumentId, 
+                                           BigDecimal quantity, BigDecimal executionPrice, String side) {
+        if (accountId == null || accountId <= 0) {
+            throw new RuntimeException("Valid Account ID is required");
+        }
+        if (instrumentId == null || instrumentId <= 0) {
+            throw new RuntimeException("Valid Instrument ID is required");
+        }
+        if (quantity == null || quantity.compareTo(BigDecimal.ZERO) <= 0) {
+            throw new RuntimeException("Quantity must be greater than 0");
+        }
+        if (executionPrice == null || executionPrice.compareTo(BigDecimal.ZERO) <= 0) {
+            throw new RuntimeException("Execution price must be greater than 0");
+        }
+        if (side == null || !side.toUpperCase().matches("^(BUY|SELL)$")) {
+            throw new RuntimeException("Side must be either BUY or SELL");
+        }
+
+        String normalizedSide = side.toUpperCase();
+        
+        // Find existing holding
+        Holding existingHolding = this.holdingMapper.findByAccountAndInstrument(accountId, instrumentId);
+        
+        if (existingHolding == null) {
+            // No existing holding - only valid for BUY
+            if (!normalizedSide.equals("BUY")) {
+                throw new RuntimeException("Cannot sell shares that are not owned. Account has no position in instrument.");
+            }
+            
+            // Create new holding
+            Holding newHolding = new Holding();
+            newHolding.setAccountId(accountId);
+            newHolding.setInstrumentId(instrumentId);
+            newHolding.setQuantity(quantity);
+            newHolding.setAveragePrice(executionPrice);
+            
+            int result = this.holdingMapper.insert(newHolding);
+            if (result == 0) {
+                throw new RuntimeException("Failed to create holding during BUY trade");
+            }
+            
+            return HoldingDTO.fromEntity(newHolding);
+        }
+        
+        // Existing holding found - update it
+        if (normalizedSide.equals("BUY")) {
+            // BUY: Add to position and recalculate average price
+            BigDecimal oldQuantity = existingHolding.getQuantity();
+            BigDecimal oldAvgPrice = existingHolding.getAveragePrice();
+            
+            // newAvgPrice = (oldQty * oldAvgPrice + newQty * newPrice) / (oldQty + newQty)
+            BigDecimal totalCost = oldQuantity.multiply(oldAvgPrice)
+                    .add(quantity.multiply(executionPrice));
+            BigDecimal newQuantity = oldQuantity.add(quantity);
+            BigDecimal newAvgPrice = totalCost.divide(newQuantity, 4, RoundingMode.HALF_UP);
+            
+            existingHolding.setQuantity(newQuantity);
+            existingHolding.setAveragePrice(newAvgPrice);
+            
+            int result = this.holdingMapper.update(existingHolding);
+            if (result == 0) {
+                throw new RuntimeException("Failed to update holding during BUY trade");
+            }
+            
+            return HoldingDTO.fromEntity(existingHolding);
+        } else {
+            // SELL: Reduce position
+            BigDecimal oldQuantity = existingHolding.getQuantity();
+            
+            if (quantity.compareTo(oldQuantity) > 0) {
+                throw new RuntimeException(
+                    String.format("Cannot sell %.4f shares - only %.4f available", quantity, oldQuantity)
+                );
+            }
+            
+            BigDecimal newQuantity = oldQuantity.subtract(quantity);
+            
+            if (newQuantity.compareTo(BigDecimal.ZERO) == 0) {
+                // Quantity is 0 - delete the holding
+                int result = this.holdingMapper.deleteByAccountAndInstrument(accountId, instrumentId);
+                if (result == 0) {
+                    throw new RuntimeException("Failed to delete holding after selling all shares");
+                }
+                
+                // Create a response DTO showing the liquidated position
+                Holding liquidatedHolding = new Holding();
+                liquidatedHolding.setAccountId(accountId);
+                liquidatedHolding.setInstrumentId(instrumentId);
+                liquidatedHolding.setQuantity(BigDecimal.ZERO);
+                liquidatedHolding.setAveragePrice(existingHolding.getAveragePrice());
+                
+                return HoldingDTO.fromEntity(liquidatedHolding);
+            } else {
+                // Quantity remains - update it (average price stays the same for SELL)
+                existingHolding.setQuantity(newQuantity);
+                
+                int result = this.holdingMapper.update(existingHolding);
+                if (result == 0) {
+                    throw new RuntimeException("Failed to update holding during SELL trade");
+                }
+                
+                return HoldingDTO.fromEntity(existingHolding);
+            }
         }
     }
 }

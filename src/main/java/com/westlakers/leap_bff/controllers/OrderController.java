@@ -17,6 +17,10 @@ import jakarta.validation.Valid;
 
 import com.westlakers.leap_bff.dtos.OrderDTO;
 import com.westlakers.leap_bff.dtos.OrderProfileDTO;
+import com.westlakers.leap_bff.dtos.MarketOrderRequest;
+import com.westlakers.leap_bff.dtos.LimitOrderRequest;
+import com.westlakers.leap_bff.dtos.TradeExecutionRequest;
+import com.westlakers.leap_bff.dtos.TradeExecutionResponse;
 import com.westlakers.leap_bff.entities.Order;
 import com.westlakers.leap_bff.services.OrderService;
 
@@ -62,12 +66,6 @@ public class OrderController {
         return ResponseEntity.ok(order.getStatusName());
     }
 
-    @PostMapping("/orders")
-    public ResponseEntity<OrderDTO> createOrder(@Valid @RequestBody Order order) {
-        OrderDTO createdOrder = this.orderService.createOrder(order);
-        return ResponseEntity.status(HttpStatus.CREATED).body(createdOrder);
-    }
-
     @PatchMapping("/orders/{id}")
     public ResponseEntity<OrderDTO> updateOrder(@PathVariable Long id, @Valid @RequestBody Order order) {
         OrderDTO updatedOrder = this.orderService.updateOrder(id, order);
@@ -78,5 +76,31 @@ public class OrderController {
     public ResponseEntity<Void> deleteOrder(@PathVariable Long id) {
         this.orderService.deleteOrder(id);
         return ResponseEntity.noContent().build();
+    }
+
+    @PostMapping("/trades/market")
+    public ResponseEntity<TradeExecutionResponse> createMarketTrade(@Valid @RequestBody MarketOrderRequest request) {
+        TradeExecutionResponse response = this.orderService.createMarketTrade(request);
+        return ResponseEntity.status(HttpStatus.CREATED).body(response);
+    }
+
+    @PostMapping("/trades/limit")
+    public ResponseEntity<TradeExecutionResponse> createLimitTrade(@Valid @RequestBody LimitOrderRequest request) {
+        TradeExecutionResponse response = this.orderService.createLimitTrade(request);
+        return ResponseEntity.status(HttpStatus.CREATED).body(response);
+    }
+
+    @PostMapping("/trades/{orderId}/execute")
+    public ResponseEntity<TradeExecutionResponse> executeTrade(
+            @PathVariable Long orderId,
+            @Valid @RequestBody TradeExecutionRequest request) {
+        TradeExecutionResponse response = this.orderService.executeTrade(orderId, request.getExecutionPrice());
+        return ResponseEntity.ok(response);
+    }
+
+    @PostMapping("/trades/{orderId}/cancel")
+    public ResponseEntity<TradeExecutionResponse> cancelTrade(@PathVariable Long orderId) {
+        TradeExecutionResponse response = this.orderService.cancelTrade(orderId);
+        return ResponseEntity.ok(response);
     }
 }
