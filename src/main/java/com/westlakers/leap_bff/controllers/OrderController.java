@@ -90,7 +90,7 @@ public class OrderController {
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
 
-    @PostMapping("/trades/{orderId}/execute")
+    @PatchMapping("/trades/{orderId}/execute")
     public ResponseEntity<TradeExecutionResponse> executeTrade(
             @PathVariable Long orderId,
             @Valid @RequestBody TradeExecutionRequest request) {
@@ -98,7 +98,7 @@ public class OrderController {
         return ResponseEntity.ok(response);
     }
 
-    @PostMapping("/trades/{orderId}/cancel")
+    @PatchMapping("/trades/{orderId}/cancel")
     public ResponseEntity<TradeExecutionResponse> cancelTrade(@PathVariable Long orderId) {
         TradeExecutionResponse response = this.orderService.cancelTrade(orderId);
         return ResponseEntity.ok(response);
