@@ -6,30 +6,41 @@
 // import com.westlakers.leap_bff.security.JwtService;
 // import org.junit.jupiter.api.BeforeEach;
 // import org.junit.jupiter.api.Test;
-// import org.mockito.Mock;
-// import org.mockito.MockitoAnnotations;
+// import org.springframework.beans.factory.annotation.Autowired;
+// import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
+// import org.springframework.boot.test.context.SpringBootTest;
+// import org.springframework.boot.test.mock.mockito.MockBean;
+// import org.springframework.http.MediaType;
+// import org.springframework.test.web.servlet.MockMvc;
 
+// import static org.hamcrest.Matchers.containsString;
 // import static org.junit.jupiter.api.Assertions.*;
 // import static org.mockito.Mockito.*;
+// import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
+// import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 // /**
-//  * AuthController Tests
-//  * Note: Full integration tests with MockMvc require Spring Boot test dependencies.
-//  * This version focuses on basic controller logic validation.
+//  * AuthController Integration Tests
+//  * Full Spring Boot integration tests using MockMvc to test the controller
+//  * in the context of the Spring application.
 //  */
+// @SpringBootTest
+// @AutoConfigureMockMvc
 // class AuthControllerTest {
 
-//     @Mock
+//     @Autowired
+//     private MockMvc mockMvc;
+
+//     @Autowired
+//     private ObjectMapper objectMapper;
+
+//     @MockBean
 //     private JwtService jwtService;
 
-//     private AuthController authController;
 //     private LoginRequest testLoginRequest;
 
 //     @BeforeEach
 //     void setUp() {
-//         MockitoAnnotations.openMocks(this);
-//         authController = new AuthController(jwtService);
-
 //         // Setup test data
 //         testLoginRequest = new LoginRequest();
 //         testLoginRequest.setUsername("jdoe");
@@ -37,77 +48,78 @@
 //     }
 
 //     @Test
-//     void testLogin_ValidCredentials_ReturnsToken() {
+//     void testLogin_ValidCredentials_ReturnsToken() throws Exception {
 //         // Arrange
 //         String expectedToken = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...";
 //         when(jwtService.generateToken("jdoe")).thenReturn(expectedToken);
 
-//         // Act
-//         LoginResponse response = authController.login(testLoginRequest);
+//         // Act & Assert
+//         mockMvc.perform(post("/api/auth/login")
+//                 .contentType(MediaType.APPLICATION_JSON)
+//                 .content(objectMapper.writeValueAsString(testLoginRequest)))
+//                 .andExpect(status().isOk())
+//                 .andExpect(jsonPath("$.token").value(expectedToken));
 
-//         // Assert
-//         assertNotNull(response);
-//         assertEquals(expectedToken, response.getToken());
 //         verify(jwtService, times(1)).generateToken("jdoe");
 //     }
 
 //     @Test
-//     void testLogin_CallsJwtService() {
+//     void testLogin_CallsJwtService() throws Exception {
 //         // Arrange
 //         when(jwtService.generateToken("jdoe")).thenReturn("token");
 
-//         // Act
-//         authController.login(testLoginRequest);
+//         // Act & Assert
+//         mockMvc.perform(post("/api/auth/login")
+//                 .contentType(MediaType.APPLICATION_JSON)
+//                 .content(objectMapper.writeValueAsString(testLoginRequest)))
+//                 .andExpect(status().isOk());
 
-//         // Assert
 //         verify(jwtService, times(1)).generateToken("jdoe");
 //     }
 
 //     @Test
-//     void testValidateToken_ValidToken_ReturnsTrue() {
+//     void testValidateToken_ValidToken_ReturnsTrue() throws Exception {
 //         // Arrange
 //         when(jwtService.validateToken("valid.token")).thenReturn(true);
 
-//         // Act
-//         boolean result = authController.validateToken("Bearer valid.token");
+//         // Act & Assert
+//         mockMvc.perform(get("/api/auth/validate")
+//                 .header("Authorization", "Bearer valid.token"))
+//                 .andExpect(status().isOk());
 
-//         // Assert
-//         assertTrue(result);
 //         verify(jwtService, times(1)).validateToken("valid.token");
 //     }
 
 //     @Test
-//     void testValidateToken_InvalidToken_ReturnsFalse() {
+//     void testValidateToken_InvalidToken_ReturnsFalse() throws Exception {
 //         // Arrange
 //         when(jwtService.validateToken("invalid.token")).thenReturn(false);
 
-//         // Act
-//         boolean result = authController.validateToken("Bearer invalid.token");
-
-//         // Assert
-//         assertFalse(result);
+//         // Act & Assert
+//         mockMvc.perform(get("/api/auth/validate")
+//                 .header("Authorization", "Bearer invalid.token"))
+//                 .andExpect(status().isUnauthorized());
 //     }
 
 //     @Test
-//     void testValidateToken_MissingBearerPrefix_ReturnsFalse() {
+//     void testValidateToken_MissingBearerPrefix_ReturnsFalse() throws Exception {
 //         // Arrange
 //         String authHeaderWithoutBearer = "token-without-bearer";
 
-//         // Act
-//         boolean result = authController.validateToken(authHeaderWithoutBearer);
+//         // Act & Assert
+//         mockMvc.perform(get("/api/auth/validate")
+//                 .header("Authorization", authHeaderWithoutBearer))
+//                 .andExpect(status().isUnauthorized());
 
-//         // Assert
-//         assertFalse(result);
 //         verify(jwtService, never()).validateToken(any());
 //     }
 
 //     @Test
-//     void testValidateToken_NullAuthHeader_ReturnsFalse() {
-//         // Act
-//         boolean result = authController.validateToken(null);
+//     void testValidateToken_NullAuthHeader_ReturnsFalse() throws Exception {
+//         // Act & Assert
+//         mockMvc.perform(get("/api/auth/validate"))
+//                 .andExpect(status().isUnauthorized());
 
-//         // Assert
-//         assertFalse(result);
 //         verify(jwtService, never()).validateToken(any());
 //     }
 // }
