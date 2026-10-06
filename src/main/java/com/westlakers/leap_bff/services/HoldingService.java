@@ -146,7 +146,7 @@ public class HoldingService {
         Holding existingHolding = this.holdingMapper.findByAccountAndInstrument(accountId, instrumentId);
         
         if (existingHolding == null) {
-            // No existing holding - only valid for BUY
+            // No existing holding, should only be valid for BUY
             if (!normalizedSide.equals("BUY")) {
                 throw new RuntimeException("Cannot sell shares that are not owned. Account has no position in instrument.");
             }
@@ -166,9 +166,9 @@ public class HoldingService {
             return HoldingDTO.fromEntity(newHolding);
         }
         
-        // Existing holding found - update it
+        // Existing holding found and update it
         if (normalizedSide.equals("BUY")) {
-            // BUY: Add to position and recalculate average price
+            // BUY logic: Add to position and recalculate average price
             BigDecimal oldQuantity = existingHolding.getQuantity();
             BigDecimal oldAvgPrice = existingHolding.getAveragePrice();
             
@@ -188,7 +188,7 @@ public class HoldingService {
             
             return HoldingDTO.fromEntity(existingHolding);
         } else {
-            // SELL: Reduce position
+            // SELL logic: Reduce position
             BigDecimal oldQuantity = existingHolding.getQuantity();
             
             if (quantity.compareTo(oldQuantity) > 0) {
@@ -200,7 +200,7 @@ public class HoldingService {
             BigDecimal newQuantity = oldQuantity.subtract(quantity);
             
             if (newQuantity.compareTo(BigDecimal.ZERO) == 0) {
-                // Quantity is 0 - delete the holding
+                // Quantity is 0 then delete the holding
                 int result = this.holdingMapper.deleteByAccountAndInstrument(accountId, instrumentId);
                 if (result == 0) {
                     throw new RuntimeException("Failed to delete holding after selling all shares");
@@ -215,7 +215,7 @@ public class HoldingService {
                 
                 return HoldingDTO.fromEntity(liquidatedHolding);
             } else {
-                // Quantity remains - update it (average price stays the same for SELL)
+                // Quantity remains so update it (average price stays the same for SELL)
                 existingHolding.setQuantity(newQuantity);
                 
                 int result = this.holdingMapper.update(existingHolding);
