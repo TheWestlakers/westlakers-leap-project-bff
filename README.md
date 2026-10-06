@@ -36,6 +36,7 @@ Then update `.env` with your local values. There are currently 7 lines in the fi
 **SSH Tunnel Command:**
 ```bash
 ssh -N -L 5433:localhost:5432 <user>@<host ip>
+ssh -N -L 8100:localhost:6379 <user>@<host ip>
 ```
 
 **Key Configuration Changes:**
