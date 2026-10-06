@@ -4,8 +4,10 @@ import com.westlakers.leap_bff.dtos.UserDTO;
 import com.westlakers.leap_bff.dtos.UserProfileDTO;
 import com.westlakers.leap_bff.entities.Role;
 import com.westlakers.leap_bff.entities.User;
+import com.westlakers.leap_bff.entities.UserCredentials;
 import com.westlakers.leap_bff.entities.UserStatus;
 import com.westlakers.leap_bff.mappers.RoleMapper;
+import com.westlakers.leap_bff.mappers.UserCredentialsMapper;
 import com.westlakers.leap_bff.mappers.UserMapper;
 import com.westlakers.leap_bff.mappers.UserStatusMapper;
 import org.junit.jupiter.api.BeforeEach;
@@ -35,6 +37,9 @@ class UserServiceTest {
     @Mock
     private RoleMapper roleMapper;
 
+    @Mock
+    private UserCredentialsMapper credentialsMapper;
+
     @InjectMocks
     private UserService userService;
 
@@ -42,6 +47,7 @@ class UserServiceTest {
     private UserDTO testUserDTO;
     private UserStatus testStatus;
     private Role testRole;
+    private UserCredentials testCredentials;
 
     @BeforeEach
     void setUp() {
@@ -65,6 +71,14 @@ class UserServiceTest {
         testUser.setDateOfBirth(LocalDate.of(1990, 1, 15));
         testUser.setStatusId(1L);
 
+        testCredentials = new UserCredentials();
+        testCredentials.setCredentialId(1L);
+        testCredentials.setUserId(1L);
+        testCredentials.setRoleId(1L);
+        testCredentials.setUsername("jdoe");
+        testCredentials.setEmail("john.doe@example.com");
+        testCredentials.setActive(true);
+
         testUserDTO = new UserDTO();
         testUserDTO.setUserId(1L);
         testUserDTO.setFirstName("John");
@@ -73,184 +87,190 @@ class UserServiceTest {
         testUserDTO.setTaxId("123456789");
     }
 
-//     @Test
-//     void testGetAllUsers_Success() {
-//         // Arrange
-//         List<User> users = Arrays.asList(testUser);
-//         when(userMapper.findAll()).thenReturn(users);
-//         when(userStatusMapper.findById(1L)).thenReturn(testStatus);
+    @Test
+    void testGetAllUsers_Success() {
+        // Arrange
+        List<User> users = Arrays.asList(testUser);
+        when(userMapper.findAll()).thenReturn(users);
+        when(userStatusMapper.findById(1L)).thenReturn(testStatus);
 
-//         // Act
-//         List<UserDTO> result = userService.getAllUsers();
+        // Act
+        List<UserDTO> result = userService.getAllUsers();
 
-//         // Assert
-//         assertNotNull(result);
-//         assertEquals(1, result.size());
-//         verify(userMapper, times(1)).findAll();
-//     }
+        // Assert
+        assertNotNull(result);
+        assertEquals(1, result.size());
+        verify(userMapper, times(1)).findAll();
+    }
 
-//     @Test
-//     void testGetAllUsers_EmptyList_ThrowsException() {
-//         // Arrange
-//         when(userMapper.findAll()).thenReturn(Collections.emptyList());
+    @Test
+    void testGetAllUsers_EmptyList_ThrowsException() {
+        // Arrange
+        when(userMapper.findAll()).thenReturn(Collections.emptyList());
 
-//         // Act & Assert
-//         assertThrows(IllegalStateException.class, () -> userService.getAllUsers());
-//     }
+        // Act & Assert
+        assertThrows(IllegalStateException.class, () -> userService.getAllUsers());
+    }
 
-//     @Test
-//     void testGetUserById_Success() {
-//         // Arrange
-//         when(userMapper.findById(1L)).thenReturn(testUser);
-//         when(userStatusMapper.findById(1L)).thenReturn(testStatus);
+    @Test
+    void testGetUserById_Success() {
+        // Arrange
+        when(userMapper.findById(1L)).thenReturn(testUser);
+        when(userStatusMapper.findById(1L)).thenReturn(testStatus);
 
-//         // Act
-//         UserDTO result = userService.getUserById(1L);
+        // Act
+        UserDTO result = userService.getUserById(1L);
 
-//         // Assert
-//         assertNotNull(result);
-//         assertEquals(1L, result.getUserId());
-//         assertEquals("jdoe", result.getUsername());
-//         verify(userMapper, times(1)).findById(1L);
-//     }
+        // Assert
+        assertNotNull(result);
+        assertEquals(1L, result.getUserId());
+        assertEquals("John", result.getFirstName());
+        assertEquals("Doe", result.getLastName());
+        verify(userMapper, times(1)).findById(1L);
+    }
 
-//     @Test
-//     void testGetUserById_InvalidId_ThrowsException() {
-//         // Act & Assert
-//         assertThrows(IllegalArgumentException.class, () -> userService.getUserById(0L));
-//     }
+    @Test
+    void testGetUserById_InvalidId_ThrowsException() {
+        // Act & Assert
+        assertThrows(IllegalArgumentException.class, () -> userService.getUserById(0L));
+    }
 
-//     @Test
-//     void testGetUserById_NegativeId_ThrowsException() {
-//         // Act & Assert
-//         assertThrows(IllegalArgumentException.class, () -> userService.getUserById(-1L));
-//     }
+    @Test
+    void testGetUserById_NegativeId_ThrowsException() {
+        // Act & Assert
+        assertThrows(IllegalArgumentException.class, () -> userService.getUserById(-1L));
+    }
 
-//     @Test
-//     void testGetUserById_NotFound_ThrowsException() {
-//         // Arrange
-//         when(userMapper.findById(999L)).thenReturn(null);
+    @Test
+    void testGetUserById_NotFound_ThrowsException() {
+        // Arrange
+        when(userMapper.findById(999L)).thenReturn(null);
 
-//         // Act & Assert
-//         assertThrows(IllegalStateException.class, () -> userService.getUserById(999L));
-//     }
+        // Act & Assert
+        assertThrows(IllegalStateException.class, () -> userService.getUserById(999L));
+    }
 
-//     @Test
-//     void testGetUserProfile_Success() {
-//         // Arrange
-//         when(userMapper.findById(1L)).thenReturn(testUser);
-//         when(userStatusMapper.findById(1L)).thenReturn(testStatus);
-//         when(roleMapper.findById(anyLong())).thenReturn(testRole);
+    @Test
+    void testGetUserProfile_Success() {
+        // Arrange
+        when(userMapper.findById(1L)).thenReturn(testUser);
+        when(userStatusMapper.findById(1L)).thenReturn(testStatus);
+        when(roleMapper.findById(anyLong())).thenReturn(testRole);
+        when(credentialsMapper.findByUserId(1L)).thenReturn(testCredentials);
 
-//         // Act
-//         UserProfileDTO result = userService.getUserProfile(1L);
+        // Act
+        UserProfileDTO result = userService.getUserProfile(1L);
 
-//         // Assert
-//         assertNotNull(result);
-//         assertEquals(1L, result.getUserId());
-//         assertEquals("jdoe", result.getUsername());
-//         verify(userMapper, times(1)).findById(1L);
-//     }
+        // Assert
+        assertNotNull(result);
+        assertEquals(1L, result.getUserId());
+        assertEquals("jdoe", result.getUsername());
+        assertEquals("TRADER", result.getRole());
+        verify(userMapper, times(1)).findById(1L);
+    }
 
-//     @Test
-//     void testGetUserProfile_InvalidId_ThrowsException() {
-//         // Act & Assert
-//         assertThrows(IllegalArgumentException.class, () -> userService.getUserProfile(0L));
-//     }
+    @Test
+    void testGetUserProfile_InvalidId_ThrowsException() {
+        // Act & Assert
+        assertThrows(IllegalArgumentException.class, () -> userService.getUserProfile(0L));
+    }
 
-//     @Test
-//     void testGetUserProfile_UserNotFound_ThrowsException() {
-//         // Arrange
-//         when(userMapper.findById(999L)).thenReturn(null);
+    @Test
+    void testGetUserProfile_UserNotFound_ThrowsException() {
+        // Arrange
+        when(userMapper.findById(999L)).thenReturn(null);
 
-//         // Act & Assert
-//         assertThrows(IllegalStateException.class, () -> userService.getUserProfile(999L));
-//     }
+        // Act & Assert
+        assertThrows(IllegalStateException.class, () -> userService.getUserProfile(999L));
+    }
 
-//     @Test
-//     void testCreateUser_ValidData() {
-//         // Arrange
-//         when(userMapper.insert(any(User.class))).thenReturn(1);
-//         when(userStatusMapper.findById(1L)).thenReturn(testStatus);
+    @Test
+    void testCreateUser_ValidData() {
+        // Arrange
+        testUserDTO.setStatusId(1L);
+        when(userMapper.insert(any(User.class))).thenReturn(1);
+        when(userStatusMapper.findById(1L)).thenReturn(testStatus);
 
-//         // Act
-//         UserDTO result = userService.createUser(testUserDTO);
+        // Act
+        UserDTO result = userService.createUser(testUserDTO);
 
-//         // Assert
-//         assertNotNull(result);
-//         verify(userMapper, times(1)).insert(any(User.class));
-//     }
+        // Assert
+        assertNotNull(result);
+        verify(userMapper, times(1)).insert(any(User.class));
+    }
 
-//     @Test
-//     void testCreateUser_InvalidStatusId_ThrowsException() {
-//         // Arrange
-//         testUserDTO.setUserStatusId(999L);
-//         when(userStatusMapper.findById(999L)).thenReturn(null);
+    @Test
+    void testCreateUser_InvalidStatusId_ThrowsException() {
+        // Arrange
+        testUserDTO.setStatusId(999L);
+        when(userStatusMapper.findById(999L)).thenReturn(null);
 
-//         // Act & Assert
-//         assertThrows(IllegalStateException.class, () -> userService.createUser(testUserDTO));
-//     }
+        // Act & Assert
+        assertThrows(IllegalStateException.class, () -> userService.createUser(testUserDTO));
+    }
 
-//     @Test
-//     void testUpdateUser_Success() {
-//         // Arrange
-//         UserDTO updatedUserDTO = new UserDTO();
-//         updatedUserDTO.setFirstName("Jane");
-//         updatedUserDTO.setLastName("Smith");
-//         updatedUserDTO.setPhoneNumber("555-5678");
+    @Test
+    void testUpdateUser_Success() {
+        // Arrange
+        UserDTO updatedUserDTO = new UserDTO();
+        updatedUserDTO.setFirstName("Jane");
+        updatedUserDTO.setLastName("Smith");
+        updatedUserDTO.setPhoneNumber("5555678");
+        updatedUserDTO.setTaxId("987654321");
+        updatedUserDTO.setStatusId(1L);
 
-//         when(userMapper.findById(1L)).thenReturn(testUser);
-//         when(userMapper.update(any())).thenReturn(1);
-//         when(userStatusMapper.findById(1L)).thenReturn(testStatus);
+        when(userMapper.findById(1L)).thenReturn(testUser);
+        when(userMapper.update(any())).thenReturn(1);
+        when(userStatusMapper.findById(1L)).thenReturn(testStatus);
 
-//         // Act
-//         UserDTO result = userService.updateUser(1L, updatedUserDTO);
+        // Act
+        UserDTO result = userService.updateUser(1L, updatedUserDTO);
 
-//         // Assert
-//         assertNotNull(result);
-//         verify(userMapper, times(1)).update(any());
-//     }
+        // Assert
+        assertNotNull(result);
+        verify(userMapper, times(1)).update(any());
+    }
 
-//     @Test
-//     void testUpdateUser_InvalidId_ThrowsException() {
-//         // Act & Assert
-//         assertThrows(IllegalArgumentException.class, () -> userService.updateUser(0L, testUserDTO));
-//     }
+    @Test
+    void testUpdateUser_InvalidId_ThrowsException() {
+        // Act & Assert
+        assertThrows(IllegalArgumentException.class, () -> userService.updateUser(0L, testUserDTO));
+    }
 
-//     @Test
-//     void testUpdateUser_UserNotFound_ThrowsException() {
-//         // Arrange
-//         when(userMapper.findById(999L)).thenReturn(null);
+    @Test
+    void testUpdateUser_UserNotFound_ThrowsException() {
+        // Arrange
+        when(userMapper.findById(999L)).thenReturn(null);
 
-//         // Act & Assert
-//         assertThrows(IllegalStateException.class, () -> userService.updateUser(999L, testUserDTO));
-//     }
+        // Act & Assert
+        assertThrows(IllegalStateException.class, () -> userService.updateUser(999L, testUserDTO));
+    }
 
-//     @Test
-//     void testDeleteUser_Success() {
-//         // Arrange
-//         when(userMapper.findById(1L)).thenReturn(testUser);
-//         when(userMapper.delete(1L)).thenReturn(1);
+    @Test
+    void testDeleteUser_Success() {
+        // Arrange
+        when(userMapper.findById(1L)).thenReturn(testUser);
+        when(userMapper.delete(1L)).thenReturn(1);
 
-//         // Act
-//         assertDoesNotThrow(() -> userService.deleteUser(1L));
+        // Act
+        assertDoesNotThrow(() -> userService.deleteUser(1L));
 
-//         // Assert
-//         verify(userMapper, times(1)).delete(1L);
-//     }
+        // Assert
+        verify(userMapper, times(1)).delete(1L);
+    }
 
-//     @Test
-//     void testDeleteUser_InvalidId_ThrowsException() {
-//         // Act & Assert
-//         assertThrows(IllegalArgumentException.class, () -> userService.deleteUser(0L));
-//     }
+    @Test
+    void testDeleteUser_InvalidId_ThrowsException() {
+        // Act & Assert
+        assertThrows(IllegalArgumentException.class, () -> userService.deleteUser(0L));
+    }
 
-//     @Test
-//     void testDeleteUser_UserNotFound_ThrowsException() {
-//         // Arrange
-//         when(userMapper.findById(999L)).thenReturn(null);
+    @Test
+    void testDeleteUser_UserNotFound_ThrowsException() {
+        // Arrange
+        when(userMapper.findById(999L)).thenReturn(null);
 
-//         // Act & Assert
-//         assertThrows(IllegalStateException.class, () -> userService.deleteUser(999L));
-//     }
+        // Act & Assert
+        assertThrows(IllegalStateException.class, () -> userService.deleteUser(999L));
+    }
 }
