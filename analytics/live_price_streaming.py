@@ -280,7 +280,7 @@ def main():
     redis_host = os.getenv('REDIS_HOST', 'localhost')
     redis_port = int(os.getenv('REDIS_PORT', 6379))
     redis_db = int(os.getenv('REDIS_DB', 0))
-    polling_interval = float(os.getenv('POLLING_INTERVAL', 1.0))
+    polling_interval = float(os.getenv('POLLING_INTERVAL', 3.0))
     
     # Custom tickers can be passed as comma-separated string
     tickers_str = os.getenv('TICKERS', 'AAPL,MSFT,GOOGL,AMZN,TSLA')
