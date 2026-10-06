@@ -7,12 +7,14 @@ import lombok.NoArgsConstructor;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
 import java.math.BigDecimal;
-import java.time.LocalDateTime;
 
 /**
  * Data Transfer Object for live stock price data.
- * Contains current price and OHLCV (Open, High, Low, Close, Volume) information.
+ * Contains current price, OHLCV (Open, High, Low, Close, Volume) information,
+ * and extended market data from real-time streaming.
  * Used for Redis stream serialization and REST API responses.
+ * 
+ * Supports both legacy format (symbol) and new streaming format (ticker).
  */
 @Data
 @NoArgsConstructor
@@ -20,6 +22,11 @@ import java.time.LocalDateTime;
 @Builder
 public class PriceDTO {
     
+    // Ticker identifier (used by streaming service)
+    @JsonProperty("ticker")
+    private String ticker;
+    
+    // Legacy symbol field (kept for backward compatibility)
     @JsonProperty("symbol")
     private String symbol;
     
@@ -50,12 +57,31 @@ public class PriceDTO {
     @JsonProperty("change")
     private BigDecimal change;
     
+    @JsonProperty("changePct")
+    private BigDecimal changePct;
+    
     @JsonProperty("changePercent")
     private BigDecimal changePercent;
     
+    // Extended market data
+    @JsonProperty("marketCap")
+    private Long marketCap;
+    
+    @JsonProperty("peRatio")
+    private BigDecimal peRatio;
+    
+    @JsonProperty("fiftyTwoWeekHigh")
+    private BigDecimal fiftyTwoWeekHigh;
+    
+    @JsonProperty("fiftyTwoWeekLow")
+    private BigDecimal fiftyTwoWeekLow;
+    
+    @JsonProperty("previousClose")
+    private BigDecimal previousClose;
+    
     @JsonProperty("timestamp")
-    private LocalDateTime timestamp;
+    private String timestamp;
     
     @JsonProperty("lastUpdate")
-    private LocalDateTime lastUpdate;
+    private String lastUpdate;
 }

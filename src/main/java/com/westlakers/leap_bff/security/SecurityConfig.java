@@ -30,6 +30,10 @@ public class SecurityConfig {
                 auth
                     .requestMatchers("/api/auth/login").permitAll()
                     .requestMatchers("/public").permitAll()
+                    .requestMatchers("/static/**").permitAll()
+                    .requestMatchers("/live-prices.html").permitAll()
+                    .requestMatchers("/api/prices/**").permitAll()
+                    .requestMatchers("/ws/**").permitAll()
                     .requestMatchers("/actuator/health").permitAll()
                     .requestMatchers("/private").authenticated()
                     .anyRequest().authenticated()

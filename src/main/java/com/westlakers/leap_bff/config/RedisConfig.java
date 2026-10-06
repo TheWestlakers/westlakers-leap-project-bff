@@ -1,5 +1,6 @@
 package com.westlakers.leap_bff.config;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -39,5 +40,14 @@ public class RedisConfig {
         
         template.afterPropertiesSet();
         return template;
+    }
+    
+    /**
+     * Configure ObjectMapper for JSON serialization.
+     * Used by PriceStreamingService for JSON conversion.
+     */
+    @Bean
+    public ObjectMapper objectMapper() {
+        return new ObjectMapper();
     }
 }
