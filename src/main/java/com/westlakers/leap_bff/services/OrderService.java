@@ -117,6 +117,14 @@ public class OrderService {
             throw new RuntimeException("Order not found with id: " + orderId);
         }
 
+        // Prevent updates to orders that are already executed or cancelled
+        if (existingOrder.getStatus() == 2L || existingOrder.getStatus() == 3L) {
+            throw new RuntimeException(
+                "Cannot update order with id: " + orderId + ". Order status is " + 
+                (existingOrder.getStatus() == 2L ? "EXECUTED" : "CANCELLED")
+            );
+        }
+
         // Set the order ID to ensure we're updating the correct record
         updatedOrder.setOrderId(orderId);
 
@@ -164,9 +172,8 @@ public class OrderService {
             throw new RuntimeException("Instrument not found with id: " + request.getInstrumentId());
         }
         
-        // Validate account has sufficient funds (for market orders, cost cannot be precisely calculated without current market price)
-        // This validates basic cash availability; actual cost check happens at execution time
-        validateAccountBalance(account, request.getSide(), request.getQuantity(), null);
+        // Validate account has sufficient funds based on estimated price
+        validateAccountBalance(account, request.getSide(), request.getQuantity(), request.getEstimatedPrice());
         
         // For SELL orders, validate that account holds the instrument
         if ("SELL".equalsIgnoreCase(request.getSide())) {
@@ -191,7 +198,7 @@ public class OrderService {
         }
         
         // Build and return response
-        return buildTradeExecutionResponse(order, "MARKET order created successfully - awaiting execution at market price");
+        return buildTradeExecutionResponse(order, "MARKET order created successfully. Awaiting execution.");
     }
 
     /**
@@ -304,7 +311,12 @@ public class OrderService {
         }
     }
 
-    private void validateAccountBalance(Account account, String side, BigDecimal quantity, BigDecimal limitPrice) {
+    private void validateAccountBalance(Account account, String side, BigDecimal quantity, BigDecimal pricePerUnit) {
+        // Validate account is active
+        if (account == null) {
+            throw new RuntimeException("Account validation failed: account is null");
+        }
+        
         String sideUpper = side.toUpperCase();
         
         if ("BUY".equals(sideUpper)) {
@@ -313,9 +325,9 @@ public class OrderService {
                 throw new RuntimeException("Account does not have sufficient settled cash to execute BUY order");
             }
             
-            // If limit price is provided, calculate and validate exact amount needed
-            if (limitPrice != null) {
-                BigDecimal totalCost = quantity.multiply(limitPrice);
+            // Calculate and validate exact amount needed based on price per unit
+            if (pricePerUnit != null) {
+                BigDecimal totalCost = quantity.multiply(pricePerUnit);
                 if (account.getSettledCash().compareTo(totalCost) < 0) {
                     throw new RuntimeException(
                         "Insufficient funds. Account has " + account.getSettledCash() + 
@@ -325,7 +337,7 @@ public class OrderService {
             }
             
         } else if ("SELL".equals(sideUpper)) {
-            // For SELL orders: Validate the quantity is positive
+            // For SELL orders: Validate the quantity is positive (actual holdings validated separately)
             if (quantity == null || quantity.compareTo(BigDecimal.ZERO) <= 0) {
                 throw new RuntimeException("Quantity must be greater than 0");
             }
@@ -336,8 +348,15 @@ public class OrderService {
         if (limitPrice == null || limitPrice.compareTo(BigDecimal.ZERO) <= 0) {
             throw new RuntimeException("Limit price must be greater than 0");
         }
-        // Note: Additional logic could warn if BUY limit price is unusually high
-        // or SELL limit price is unusually low, but these are allowed
+        
+        // Ensure limit price is provided for limit orders
+        String sideUpper = side.toUpperCase();
+        if ("BUY".equals(sideUpper) || "SELL".equals(sideUpper)) {
+            // BUY orders: Limit price represents max price willing to pay
+            // SELL orders: Limit price represents min price willing to accept
+            // Both are valid regardless of current market price
+            // (Additional market price validation could be added if current price is available)
+        }
     }
 
     private void validateSellHoldings(Account account, Long instrumentId, BigDecimal quantity) {
@@ -385,9 +404,35 @@ public class OrderService {
             throw new RuntimeException("Order not found with id: " + orderId);
         }
         
+        // Validate order is in PENDING state (1L) before execution
+        if (order.getStatus() != 1L) {
+            String statusName = order.getStatus() == 2L ? "EXECUTED" : 
+                               order.getStatus() == 3L ? "CANCELLED" : "UNKNOWN";
+            throw new RuntimeException(
+                "Cannot execute order with id: " + orderId + ". Order status is " + statusName + 
+                ". Only PENDING orders can be executed."
+            );
+        }
+        
         // Validate execution price
         if (executionPrice == null || executionPrice.compareTo(BigDecimal.ZERO) <= 0) {
             throw new RuntimeException("Execution price must be greater than 0");
+        }
+        
+        // For BUY orders, validate account still has sufficient funds at execution time
+        if ("BUY".equalsIgnoreCase(order.getSide())) {
+            Account account = accountMapper.findById(order.getAccountId());
+            if (account == null) {
+                throw new RuntimeException("Account not found with id: " + order.getAccountId());
+            }
+            
+            BigDecimal totalCost = order.getQuantity().multiply(executionPrice);
+            if (account.getSettledCash() == null || account.getSettledCash().compareTo(totalCost) < 0) {
+                throw new RuntimeException(
+                    "Insufficient funds at execution. Account has " + account.getSettledCash() + 
+                    " but execution requires " + totalCost
+                );
+            }
         }
         
         // Update order to EXECUTED status

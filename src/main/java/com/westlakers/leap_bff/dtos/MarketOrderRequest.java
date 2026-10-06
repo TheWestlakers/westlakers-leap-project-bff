@@ -33,4 +33,8 @@ public class MarketOrderRequest {
     @NotNull(message = "Quantity cannot be null")
     @Positive(message = "Quantity must be greater than 0")
     private BigDecimal quantity;
+    
+    @NotNull(message = "Estimated price cannot be null")
+    @Positive(message = "Estimated price must be greater than 0")
+    private BigDecimal estimatedPrice;
 }
