@@ -14,7 +14,7 @@ import java.time.LocalDateTime;
 @Builder
 public class TradeExecutionResponse {
     
-    private Long tradeId;
+    private Long orderId;
     private Long accountId;
     private Long instrumentId;
     private String side;

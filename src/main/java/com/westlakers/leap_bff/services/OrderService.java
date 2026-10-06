@@ -380,7 +380,7 @@ public class OrderService {
         OrderStatus orderStatus = orderStatusMapper.findById(order.getStatus());
         
         return TradeExecutionResponse.builder()
-                .tradeId(order.getOrderId())
+                .orderId(order.getOrderId())
                 .accountId(order.getAccountId())
                 .instrumentId(order.getInstrumentId())
                 .side(order.getSide())
