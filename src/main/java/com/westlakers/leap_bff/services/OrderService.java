@@ -435,6 +435,11 @@ public class OrderService {
             }
         }
         
+        // For SELL orders, validate account still holds the required shares at execution time
+        if ("SELL".equalsIgnoreCase(order.getSide())) {
+            validateSellHoldings(accountMapper.findById(order.getAccountId()), order.getInstrumentId(), order.getQuantity());
+        }
+        
         // Update order to EXECUTED status
         order.setStatus(2L); // EXECUTED status
         order.setExecutedAt(LocalDateTime.now());
@@ -453,8 +458,21 @@ public class OrderService {
             order.getSide()
         );
         
-        // Build and return response
+        // Update account settled cash
         BigDecimal totalValue = order.getQuantity().multiply(executionPrice);
+        Account account = accountMapper.findById(order.getAccountId());
+        if (account != null) {
+            if ("BUY".equalsIgnoreCase(order.getSide())) {
+                // Decrease settled cash
+                account.setSettledCash(account.getSettledCash().subtract(totalValue));
+            } else if ("SELL".equalsIgnoreCase(order.getSide())) {
+                // Increase settled cash
+                account.setSettledCash(account.getSettledCash().add(totalValue));
+            }
+            accountMapper.update(account);
+        }
+        
+        // Build and return response
         String message = String.format(
             "Trade executed successfully - %s %s shares of instrument %d at %.2f",
             order.getSide(),
