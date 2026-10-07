@@ -101,6 +101,12 @@ public class UserService {
 
     @Transactional
     public UserDTO createUser(UserDTO userDTO) {        
+        // Validate that the status exists
+        UserStatus userStatus = userStatusMapper.findById(userDTO.getStatusId());
+        if(userStatus == null) {
+            throw new ApiException(ErrorCode.INVALID_INPUT, "Invalid status id: " + userDTO.getStatusId());
+        }
+        
         User user = new User();
         user.setFirstName(userDTO.getFirstName());
         user.setLastName(userDTO.getLastName());
@@ -114,7 +120,6 @@ public class UserService {
             throw new ApiException(ErrorCode.CREATION_FAILED);
         }
         
-        UserStatus userStatus = userStatusMapper.findById(user.getStatusId());
         return UserDTO.fromEntity(user, userStatus);
     }
 

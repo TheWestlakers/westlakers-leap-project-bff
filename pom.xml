@@ -28,6 +28,7 @@
 	</scm>
 	<properties>
 		<java.version>17</java.version>
+		<skipJacoco>true</skipJacoco>
 	</properties>
 	<dependencies>
 		<dependency>
@@ -162,10 +163,47 @@
 				<groupId>org.apache.maven.plugins</groupId>
 				<artifactId>maven-surefire-plugin</artifactId>
 				<configuration>
-					<argLine>-XX:+EnableDynamicAgentLoading</argLine>
+					<argLine>@{argLine} -XX:+EnableDynamicAgentLoading</argLine>
 				</configuration>
+			</plugin>
+			<plugin>
+				<groupId>org.jacoco</groupId>
+				<artifactId>jacoco-maven-plugin</artifactId>
+				<version>0.8.12</version>
+				<!-- <version>0.8.10</version> -->
+				<configuration>
+					<skip>${skipJacoco}</skip>
+					<excludes>
+						<!-- Exclude Mockito-generated mock classes from instrumentation -->
+						<exclude>**/*MockitoMock*</exclude>
+					</excludes>
+				</configuration>
+				<executions>
+					<execution>
+						<goals>
+							<goal>prepare-agent</goal>
+						</goals>
+					</execution>
+					<execution>
+						<id>report</id>
+						<phase>test</phase>
+						<goals>
+							<goal>report</goal>
+						</goals>
+					</execution>
+				</executions>
 			</plugin>
 		</plugins>
 	</build>
+
+	<profiles>
+		<!-- Enable code coverage for CI/CD pipelines -->
+		<profile>
+			<id>coverage</id>
+			<properties>
+				<skipJacoco>false</skipJacoco>
+			</properties>
+		</profile>
+	</profiles>
 
 </project>

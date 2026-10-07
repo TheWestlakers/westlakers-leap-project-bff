@@ -20,11 +20,13 @@ import com.westlakers.leap_bff.entities.Instrument;
 import com.westlakers.leap_bff.entities.Holding;
 import com.westlakers.leap_bff.dtos.OrderDTO;
 import com.westlakers.leap_bff.dtos.OrderProfileDTO;
+
 import com.westlakers.leap_bff.dtos.MarketOrderRequest;
 import com.westlakers.leap_bff.dtos.LimitOrderRequest;
 import com.westlakers.leap_bff.dtos.TradeExecutionResponse;
 import com.westlakers.leap_bff.exceptions.ApiException;
 import com.westlakers.leap_bff.exceptions.ErrorCode;
+
 
 @Service
 public class OrderService {
@@ -109,6 +111,45 @@ public class OrderService {
         }
 
         return OrderProfileDTO.fromEntities(order, orderStatus);
+    }
+
+    @Transactional
+    public OrderDTO createOrder(Order order) {
+        // Validate required fields
+        if(order.getAccountId() == null) {
+            throw new RuntimeException("Account ID is required");
+        }
+        if(order.getInstrumentId() == null) {
+            throw new RuntimeException("Instrument ID is required");
+        }
+        if(order.getSide() == null || order.getSide().isEmpty()) {
+            throw new RuntimeException("Side is required (BUY or SELL)");
+        }
+        if(!order.getSide().equals("BUY") && !order.getSide().equals("SELL")) {
+            throw new RuntimeException("Side must be either BUY or SELL");
+        }
+        if(order.getOrderType() == null || order.getOrderType().isEmpty()) {
+            throw new RuntimeException("Order Type is required");
+        }
+        if(order.getQuantity() == null) {
+            throw new RuntimeException("Quantity is required");
+        }
+        if(order.getQuantity().compareTo(BigDecimal.ZERO) <= 0) {
+            throw new RuntimeException("Quantity must be greater than zero");
+        }
+        if(order.getStatus() == null) {
+            throw new RuntimeException("Status ID is required");
+        }
+
+        // Insert the order
+        int result = this.orderMapper.insert(order);
+        if(result == 0) {
+            throw new RuntimeException("Failed to create order");
+        }
+
+        // Fetch and return the created order
+        OrderStatus orderStatus = orderStatusMapper.findById(order.getStatus());
+        return OrderDTO.fromEntity(order, orderStatus);
     }
 
     @Transactional
