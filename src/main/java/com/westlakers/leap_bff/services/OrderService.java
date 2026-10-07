@@ -23,6 +23,8 @@ import com.westlakers.leap_bff.dtos.OrderProfileDTO;
 import com.westlakers.leap_bff.dtos.MarketOrderRequest;
 import com.westlakers.leap_bff.dtos.LimitOrderRequest;
 import com.westlakers.leap_bff.dtos.TradeExecutionResponse;
+import com.westlakers.leap_bff.exceptions.ApiException;
+import com.westlakers.leap_bff.exceptions.ErrorCode;
 
 @Service
 public class OrderService {
@@ -50,7 +52,7 @@ public class OrderService {
         List<Order> orders = this.orderMapper.findAll();
 
         if(orders.size() == 0) {
-            throw new RuntimeException("List was zero");
+            throw new ApiException(ErrorCode.EMPTY_RESULTS);
         }
         // Convert Order entities to DTOs, fetching status for each order
         return orders.stream()
@@ -66,7 +68,7 @@ public class OrderService {
         Order order = this.orderMapper.findById(id);
 
         if(order == null) {
-            throw new RuntimeException("Order not found with id: " + id);
+            throw new ApiException(ErrorCode.ORDER_NOT_FOUND, "Order not found with id: " + id);
         }
 
         OrderStatus orderStatus = orderStatusMapper.findById(order.getStatus());
@@ -78,7 +80,7 @@ public class OrderService {
         List<Order> orders = this.orderMapper.findByAccountId(accountId);
 
         if(orders.size() == 0) {
-            throw new RuntimeException("No orders found for account id: " + accountId);
+            throw new ApiException(ErrorCode.ORDER_NOT_FOUND, "No orders found for account id: " + accountId);
         }
         // Convert Order entities to DTOs, fetching status for each order
         return orders.stream()
@@ -98,12 +100,12 @@ public class OrderService {
         Order order = this.orderMapper.findById(orderId);
 
         if(order == null) {
-            throw new RuntimeException("Order not found with id: " + orderId);
+            throw new ApiException(ErrorCode.ORDER_NOT_FOUND, "Order not found with id: " + orderId);
         }
 
         OrderStatus orderStatus = orderStatusMapper.findById(order.getStatus());
         if(orderStatus == null) {
-            throw new RuntimeException("Order status not found for order id: " + orderId);
+            throw new ApiException(ErrorCode.RESOURCE_NOT_FOUND, "Order status not found for order id: " + orderId);
         }
 
         return OrderProfileDTO.fromEntities(order, orderStatus);
@@ -114,12 +116,12 @@ public class OrderService {
         // Verify order exists
         Order existingOrder = this.orderMapper.findById(orderId);
         if(existingOrder == null) {
-            throw new RuntimeException("Order not found with id: " + orderId);
+            throw new ApiException(ErrorCode.ORDER_NOT_FOUND, "Order not found with id: " + orderId);
         }
 
         // Prevent updates to orders that are already executed or cancelled
         if (existingOrder.getStatus() == 2L || existingOrder.getStatus() == 3L) {
-            throw new RuntimeException(
+            throw new ApiException(ErrorCode.OPERATION_FAILED,
                 "Cannot update order with id: " + orderId + ". Order status is " + 
                 (existingOrder.getStatus() == 2L ? "EXECUTED" : "CANCELLED")
             );
@@ -131,7 +133,7 @@ public class OrderService {
         // Update the order
         int result = this.orderMapper.update(updatedOrder);
         if(result == 0) {
-            throw new RuntimeException("Failed to update order with id: " + orderId);
+            throw new ApiException(ErrorCode.UPDATE_FAILED, "Failed to update order with id: " + orderId);
         }
 
         // Fetch and return the updated order
@@ -145,13 +147,13 @@ public class OrderService {
         // Verify order exists
         Order order = this.orderMapper.findById(orderId);
         if(order == null) {
-            throw new RuntimeException("Order not found with id: " + orderId);
+            throw new ApiException(ErrorCode.ORDER_NOT_FOUND, "Order not found with id: " + orderId);
         }
 
         // Delete the order
         int result = this.orderMapper.delete(orderId);
         if(result == 0) {
-            throw new RuntimeException("Failed to delete order with id: " + orderId);
+            throw new ApiException(ErrorCode.DELETE_FAILED, "Failed to delete order with id: " + orderId);
         }
     }
 
@@ -163,13 +165,13 @@ public class OrderService {
         // Fetch and validate account exists
         Account account = accountMapper.findById(request.getAccountId());
         if (account == null) {
-            throw new RuntimeException("Account not found with id: " + request.getAccountId());
+            throw new ApiException(ErrorCode.ACCOUNT_NOT_FOUND, "Account not found with id: " + request.getAccountId());
         }
         
         // Fetch and validate instrument exists
         Instrument instrument = instrumentMapper.findById(request.getInstrumentId());
         if (instrument == null) {
-            throw new RuntimeException("Instrument not found with id: " + request.getInstrumentId());
+            throw new ApiException(ErrorCode.INSTRUMENT_NOT_FOUND, "Instrument not found with id: " + request.getInstrumentId());
         }
         
         // Validate account has sufficient funds based on estimated price
@@ -194,7 +196,7 @@ public class OrderService {
         // Insert the order
         int result = orderMapper.insert(order);
         if (result == 0) {
-            throw new RuntimeException("Failed to create market order");
+            throw new ApiException(ErrorCode.ORDER_CREATION_FAILED);
         }
         
         // Build and return response
@@ -213,7 +215,7 @@ public class OrderService {
      * 
      * @param request LimitOrderRequest containing account, instrument, side, quantity, and limit price
      * @return TradeExecutionResponse with order details
-     * @throws RuntimeException if validation fails or order creation fails
+     * @throws ApiException if validation fails or order creation fails
      */
     @Transactional
     public TradeExecutionResponse createLimitTrade(LimitOrderRequest request) {
@@ -223,13 +225,13 @@ public class OrderService {
         // Fetch and validate account exists
         Account account = accountMapper.findById(request.getAccountId());
         if (account == null) {
-            throw new RuntimeException("Account not found with id: " + request.getAccountId());
+            throw new ApiException(ErrorCode.ACCOUNT_NOT_FOUND, "Account not found with id: " + request.getAccountId());
         }
         
         // Fetch and validate instrument exists
         Instrument instrument = instrumentMapper.findById(request.getInstrumentId());
         if (instrument == null) {
-            throw new RuntimeException("Instrument not found with id: " + request.getInstrumentId());
+            throw new ApiException(ErrorCode.INSTRUMENT_NOT_FOUND, "Instrument not found with id: " + request.getInstrumentId());
         }
         
         // Validate limit price makes sense for the side
@@ -257,7 +259,7 @@ public class OrderService {
         // Insert the order
         int result = orderMapper.insert(order);
         if (result == 0) {
-            throw new RuntimeException("Failed to create limit order");
+            throw new ApiException(ErrorCode.ORDER_CREATION_FAILED);
         }
         
         // Build and return response
@@ -274,40 +276,40 @@ public class OrderService {
 
     private void validateMarketOrderRequest(MarketOrderRequest request) {
         if (request.getAccountId() == null || request.getAccountId() <= 0) {
-            throw new RuntimeException("Valid Account ID is required");
+            throw new ApiException(ErrorCode.ACCOUNT_ID_REQUIRED);
         }
         if (request.getInstrumentId() == null || request.getInstrumentId() <= 0) {
-            throw new RuntimeException("Valid Instrument ID is required");
+            throw new ApiException(ErrorCode.INSTRUMENT_ID_REQUIRED);
         }
         if (request.getSide() == null || request.getSide().trim().isEmpty()) {
-            throw new RuntimeException("Side is required (BUY or SELL)");
+            throw new ApiException(ErrorCode.MISSING_REQUIRED_FIELD);
         }
         if (!request.getSide().toUpperCase().matches("^(BUY|SELL)$")) {
-            throw new RuntimeException("Side must be either BUY or SELL");
+            throw new ApiException(ErrorCode.INVALID_INPUT);
         }
         if (request.getQuantity() == null || request.getQuantity().compareTo(BigDecimal.ZERO) <= 0) {
-            throw new RuntimeException("Quantity must be greater than 0");
+            throw new ApiException(ErrorCode.INVALID_QUANTITY);
         }
     }
 
     private void validateLimitOrderRequest(LimitOrderRequest request) {
         if (request.getAccountId() == null || request.getAccountId() <= 0) {
-            throw new RuntimeException("Valid Account ID is required");
+            throw new ApiException(ErrorCode.ACCOUNT_ID_REQUIRED);
         }
         if (request.getInstrumentId() == null || request.getInstrumentId() <= 0) {
-            throw new RuntimeException("Valid Instrument ID is required");
+            throw new ApiException(ErrorCode.INSTRUMENT_ID_REQUIRED);
         }
         if (request.getSide() == null || request.getSide().trim().isEmpty()) {
-            throw new RuntimeException("Side is required (BUY or SELL)");
+            throw new ApiException(ErrorCode.MISSING_REQUIRED_FIELD);
         }
         if (!request.getSide().toUpperCase().matches("^(BUY|SELL)$")) {
-            throw new RuntimeException("Side must be either BUY or SELL");
+            throw new ApiException(ErrorCode.INVALID_INPUT);
         }
         if (request.getQuantity() == null || request.getQuantity().compareTo(BigDecimal.ZERO) <= 0) {
-            throw new RuntimeException("Quantity must be greater than 0");
+            throw new ApiException(ErrorCode.INVALID_QUANTITY);
         }
         if (request.getLimitPrice() == null || request.getLimitPrice().compareTo(BigDecimal.ZERO) <= 0) {
-            throw new RuntimeException("Limit price must be greater than 0");
+            throw new ApiException(ErrorCode.INVALID_PRICE);
         }
     }
 
