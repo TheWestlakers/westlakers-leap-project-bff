@@ -7,6 +7,8 @@ import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import org.springframework.security.oauth2.jwt.JwtDecoder;
 import org.springframework.security.oauth2.jwt.NimbusJwtDecoder;
+import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.beans.factory.annotation.Value;
 import javax.crypto.SecretKey;
 import javax.crypto.spec.SecretKeySpec;
@@ -21,6 +23,11 @@ public class SecurityConfig {
     
     @Value("${jwt.shared-secret}")
     private String sharedSecret;
+    
+    @Bean
+    public PasswordEncoder passwordEncoder() {
+        return new BCryptPasswordEncoder();
+    }
     
     @Bean
     public JwtAuthenticationFilter jwtAuthenticationFilter(JwtService jwtService) {
