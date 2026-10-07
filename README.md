@@ -75,7 +75,7 @@ All test reports are generated in `target/surefire-reports/`.
 **Command to generate and view code coverage reports with JaCoCo:**
 
 ```bash
-mvn -q clean test; start target/site/jacoco/index.html
+mvn clean verify -Pcoverage; start target/site/jacoco/index.html
 ```
 
 The report shows line, branch, and method coverage with color-coded results (green = covered, yellow = partial, red = uncovered).

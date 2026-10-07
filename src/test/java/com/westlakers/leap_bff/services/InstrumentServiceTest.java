@@ -1,11 +1,11 @@
 package com.westlakers.leap_bff.services;
 
 import com.westlakers.leap_bff.entities.Instrument;
+import com.westlakers.leap_bff.exceptions.ApiException;
+import com.westlakers.leap_bff.exceptions.ErrorCode;
 import com.westlakers.leap_bff.mappers.InstrumentMapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.springframework.web.server.ResponseStatusException;
-import org.springframework.http.HttpStatus;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
@@ -64,9 +64,9 @@ class InstrumentServiceTest {
         when(instrumentMapper.findAll()).thenReturn(Collections.emptyList());
 
         // Act & Assert
-        ResponseStatusException exception = assertThrows(ResponseStatusException.class,
+        ApiException exception = assertThrows(ApiException.class,
             () -> instrumentService.getAllInstruments());
-        assertEquals(HttpStatus.NOT_FOUND, exception.getStatusCode());
+        assertEquals(ErrorCode.EMPTY_RESULTS, exception.getErrorCode());
     }
 
     @Test
@@ -89,17 +89,17 @@ class InstrumentServiceTest {
         // Arrange - id <= 0 is invalid
 
         // Act & Assert
-        ResponseStatusException exception = assertThrows(ResponseStatusException.class,
+        ApiException exception = assertThrows(ApiException.class,
             () -> instrumentService.getInstrumentById(0L));
-        assertEquals(HttpStatus.BAD_REQUEST, exception.getStatusCode());
+        assertEquals(ErrorCode.INVALID_INPUT, exception.getErrorCode());
     }
 
     @Test
     void testGetInstrumentById_NegativeId_ThrowsBadRequest() {
         // Act & Assert
-        ResponseStatusException exception = assertThrows(ResponseStatusException.class,
+        ApiException exception = assertThrows(ApiException.class,
             () -> instrumentService.getInstrumentById(-1L));
-        assertEquals(HttpStatus.BAD_REQUEST, exception.getStatusCode());
+        assertEquals(ErrorCode.INVALID_INPUT, exception.getErrorCode());
     }
 
     @Test
@@ -108,9 +108,9 @@ class InstrumentServiceTest {
         when(instrumentMapper.findById(999L)).thenReturn(null);
 
         // Act & Assert
-        ResponseStatusException exception = assertThrows(ResponseStatusException.class,
+        ApiException exception = assertThrows(ApiException.class,
             () -> instrumentService.getInstrumentById(999L));
-        assertEquals(HttpStatus.NOT_FOUND, exception.getStatusCode());
+        assertEquals(ErrorCode.INSTRUMENT_NOT_FOUND, exception.getErrorCode());
     }
 
     @Test
@@ -130,9 +130,9 @@ class InstrumentServiceTest {
     @Test
     void testGetInstrumentByTicker_EmptyTicker_ThrowsBadRequest() {
         // Act & Assert
-        ResponseStatusException exception = assertThrows(ResponseStatusException.class,
+        ApiException exception = assertThrows(ApiException.class,
             () -> instrumentService.getInstrumentByTicker(""));
-        assertEquals(HttpStatus.BAD_REQUEST, exception.getStatusCode());
+        assertEquals(ErrorCode.MISSING_REQUIRED_FIELD, exception.getErrorCode());
     }
 
     @Test
@@ -141,9 +141,9 @@ class InstrumentServiceTest {
         when(instrumentMapper.findByTicker("UNKNOWN")).thenReturn(null);
 
         // Act & Assert
-        ResponseStatusException exception = assertThrows(ResponseStatusException.class,
+        ApiException exception = assertThrows(ApiException.class,
             () -> instrumentService.getInstrumentByTicker("UNKNOWN"));
-        assertEquals(HttpStatus.NOT_FOUND, exception.getStatusCode());
+        assertEquals(ErrorCode.INSTRUMENT_NOT_FOUND, exception.getErrorCode());
     }
 
     @Test
@@ -167,9 +167,9 @@ class InstrumentServiceTest {
         when(instrumentMapper.findByTicker("AAPL")).thenReturn(testInstrument);
 
         // Act & Assert
-        ResponseStatusException exception = assertThrows(ResponseStatusException.class,
+        ApiException exception = assertThrows(ApiException.class,
             () -> instrumentService.createInstrument(testInstrument));
-        assertEquals(HttpStatus.CONFLICT, exception.getStatusCode());
+        assertEquals(ErrorCode.INVALID_INPUT, exception.getErrorCode());
     }
 
     @Test
@@ -178,9 +178,9 @@ class InstrumentServiceTest {
         testInstrument.setTicker("");
 
         // Act & Assert
-        ResponseStatusException exception = assertThrows(ResponseStatusException.class,
+        ApiException exception = assertThrows(ApiException.class,
             () -> instrumentService.createInstrument(testInstrument));
-        assertEquals(HttpStatus.BAD_REQUEST, exception.getStatusCode());
+        assertEquals(ErrorCode.MISSING_REQUIRED_FIELD, exception.getErrorCode());
     }
 
     @Test
@@ -204,9 +204,9 @@ class InstrumentServiceTest {
     @Test
     void testUpdateInstrument_InvalidId_ThrowsBadRequest() {
         // Act & Assert
-        ResponseStatusException exception = assertThrows(ResponseStatusException.class,
+        ApiException exception = assertThrows(ApiException.class,
             () -> instrumentService.updateInstrument(testInstrument, 0L));
-        assertEquals(HttpStatus.BAD_REQUEST, exception.getStatusCode());
+        assertEquals(ErrorCode.INVALID_INPUT, exception.getErrorCode());
     }
 
     @Test
@@ -215,9 +215,9 @@ class InstrumentServiceTest {
         when(instrumentMapper.findById(999L)).thenReturn(null);
 
         // Act & Assert
-        ResponseStatusException exception = assertThrows(ResponseStatusException.class,
+        ApiException exception = assertThrows(ApiException.class,
             () -> instrumentService.updateInstrument(testInstrument, 999L));
-        assertEquals(HttpStatus.NOT_FOUND, exception.getStatusCode());
+        assertEquals(ErrorCode.INSTRUMENT_NOT_FOUND, exception.getErrorCode());
     }
 
     @Test
@@ -236,9 +236,9 @@ class InstrumentServiceTest {
     @Test
     void testDeleteInstrumentById_InvalidId_ThrowsBadRequest() {
         // Act & Assert
-        ResponseStatusException exception = assertThrows(ResponseStatusException.class,
+        ApiException exception = assertThrows(ApiException.class,
             () -> instrumentService.deleteInstrumentById(0L));
-        assertEquals(HttpStatus.BAD_REQUEST, exception.getStatusCode());
+        assertEquals(ErrorCode.INVALID_INPUT, exception.getErrorCode());
     }
 
     @Test
@@ -247,8 +247,8 @@ class InstrumentServiceTest {
         when(instrumentMapper.findById(999L)).thenReturn(null);
 
         // Act & Assert
-        ResponseStatusException exception = assertThrows(ResponseStatusException.class,
+        ApiException exception = assertThrows(ApiException.class,
             () -> instrumentService.deleteInstrumentById(999L));
-        assertEquals(HttpStatus.NOT_FOUND, exception.getStatusCode());
+        assertEquals(ErrorCode.INSTRUMENT_NOT_FOUND, exception.getErrorCode());
     }
 }

@@ -6,6 +6,8 @@ import com.westlakers.leap_bff.entities.Role;
 import com.westlakers.leap_bff.entities.User;
 import com.westlakers.leap_bff.entities.UserCredentials;
 import com.westlakers.leap_bff.entities.UserStatus;
+import com.westlakers.leap_bff.exceptions.ApiException;
+import com.westlakers.leap_bff.exceptions.ErrorCode;
 import com.westlakers.leap_bff.mappers.RoleMapper;
 import com.westlakers.leap_bff.mappers.UserCredentialsMapper;
 import com.westlakers.leap_bff.mappers.UserMapper;
@@ -109,7 +111,8 @@ class UserServiceTest {
         when(userMapper.findAll()).thenReturn(Collections.emptyList());
 
         // Act & Assert
-        assertThrows(IllegalStateException.class, () -> userService.getAllUsers());
+        ApiException exception = assertThrows(ApiException.class, () -> userService.getAllUsers());
+        assertEquals(ErrorCode.EMPTY_RESULTS, exception.getErrorCode());
     }
 
     @Test
@@ -132,13 +135,15 @@ class UserServiceTest {
     @Test
     void testGetUserById_InvalidId_ThrowsException() {
         // Act & Assert
-        assertThrows(IllegalArgumentException.class, () -> userService.getUserById(0L));
+        ApiException exception = assertThrows(ApiException.class, () -> userService.getUserById(0L));
+        assertEquals(ErrorCode.INVALID_INPUT, exception.getErrorCode());
     }
 
     @Test
     void testGetUserById_NegativeId_ThrowsException() {
         // Act & Assert
-        assertThrows(IllegalArgumentException.class, () -> userService.getUserById(-1L));
+        ApiException exception = assertThrows(ApiException.class, () -> userService.getUserById(-1L));
+        assertEquals(ErrorCode.INVALID_INPUT, exception.getErrorCode());
     }
 
     @Test
@@ -147,7 +152,8 @@ class UserServiceTest {
         when(userMapper.findById(999L)).thenReturn(null);
 
         // Act & Assert
-        assertThrows(IllegalStateException.class, () -> userService.getUserById(999L));
+        ApiException exception = assertThrows(ApiException.class, () -> userService.getUserById(999L));
+        assertEquals(ErrorCode.USER_NOT_FOUND, exception.getErrorCode());
     }
 
     @Test
@@ -172,7 +178,8 @@ class UserServiceTest {
     @Test
     void testGetUserProfile_InvalidId_ThrowsException() {
         // Act & Assert
-        assertThrows(IllegalArgumentException.class, () -> userService.getUserProfile(0L));
+        ApiException exception = assertThrows(ApiException.class, () -> userService.getUserProfile(0L));
+        assertEquals(ErrorCode.INVALID_INPUT, exception.getErrorCode());
     }
 
     @Test
@@ -181,7 +188,8 @@ class UserServiceTest {
         when(userMapper.findById(999L)).thenReturn(null);
 
         // Act & Assert
-        assertThrows(IllegalStateException.class, () -> userService.getUserProfile(999L));
+        ApiException exception = assertThrows(ApiException.class, () -> userService.getUserProfile(999L));
+        assertEquals(ErrorCode.USER_NOT_FOUND, exception.getErrorCode());
     }
 
     @Test
@@ -206,7 +214,8 @@ class UserServiceTest {
         when(userStatusMapper.findById(999L)).thenReturn(null);
 
         // Act & Assert
-        assertThrows(IllegalStateException.class, () -> userService.createUser(testUserDTO));
+        ApiException exception = assertThrows(ApiException.class, () -> userService.createUser(testUserDTO));
+        assertEquals(ErrorCode.INVALID_INPUT, exception.getErrorCode());
     }
 
     @Test
@@ -234,7 +243,8 @@ class UserServiceTest {
     @Test
     void testUpdateUser_InvalidId_ThrowsException() {
         // Act & Assert
-        assertThrows(IllegalArgumentException.class, () -> userService.updateUser(0L, testUserDTO));
+        ApiException exception = assertThrows(ApiException.class, () -> userService.updateUser(0L, testUserDTO));
+        assertEquals(ErrorCode.INVALID_INPUT, exception.getErrorCode());
     }
 
     @Test
@@ -243,7 +253,8 @@ class UserServiceTest {
         when(userMapper.findById(999L)).thenReturn(null);
 
         // Act & Assert
-        assertThrows(IllegalStateException.class, () -> userService.updateUser(999L, testUserDTO));
+        ApiException exception = assertThrows(ApiException.class, () -> userService.updateUser(999L, testUserDTO));
+        assertEquals(ErrorCode.USER_NOT_FOUND, exception.getErrorCode());
     }
 
     @Test
@@ -262,7 +273,8 @@ class UserServiceTest {
     @Test
     void testDeleteUser_InvalidId_ThrowsException() {
         // Act & Assert
-        assertThrows(IllegalArgumentException.class, () -> userService.deleteUser(0L));
+        ApiException exception = assertThrows(ApiException.class, () -> userService.deleteUser(0L));
+        assertEquals(ErrorCode.INVALID_INPUT, exception.getErrorCode());
     }
 
     @Test
@@ -271,6 +283,7 @@ class UserServiceTest {
         when(userMapper.findById(999L)).thenReturn(null);
 
         // Act & Assert
-        assertThrows(IllegalStateException.class, () -> userService.deleteUser(999L));
+        ApiException exception = assertThrows(ApiException.class, () -> userService.deleteUser(999L));
+        assertEquals(ErrorCode.USER_NOT_FOUND, exception.getErrorCode());
     }
 }
