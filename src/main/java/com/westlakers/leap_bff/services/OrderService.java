@@ -168,6 +168,9 @@ public class OrderService {
             throw new ApiException(ErrorCode.ACCOUNT_NOT_FOUND, "Account not found with id: " + request.getAccountId());
         }
         
+        // Validate account status is active and allows trading
+        validateAccountStatus(account);
+        
         // Fetch and validate instrument exists
         Instrument instrument = instrumentMapper.findById(request.getInstrumentId());
         if (instrument == null) {
@@ -227,6 +230,9 @@ public class OrderService {
         if (account == null) {
             throw new ApiException(ErrorCode.ACCOUNT_NOT_FOUND, "Account not found with id: " + request.getAccountId());
         }
+        
+        // Validate account status is active and allows trading
+        validateAccountStatus(account);
         
         // Fetch and validate instrument exists
         Instrument instrument = instrumentMapper.findById(request.getInstrumentId());
@@ -361,6 +367,29 @@ public class OrderService {
         }
     }
 
+    private void validateAccountStatus(Account account) {
+        if (account.getAccountStatusId() == null) {
+            throw new ApiException(ErrorCode.INVALID_INPUT, "Account status not found for account id: " + account.getAccountId());
+        }
+        
+        // Validate account status is OPEN (status ID 1)
+        // 1 = OPEN, 2 = CLOSED, 3 = FROZEN
+        Long openStatusId = 1L; // OPEN status allows trading
+        
+        if (!account.getAccountStatusId().equals(openStatusId)) {
+            String statusMessage = "Account status does not allow trading";
+            
+            // Provide more specific error message based on status
+            if (account.getAccountStatusId() == 2L) {
+                statusMessage = "Account is CLOSED and cannot execute trades";
+            } else if (account.getAccountStatusId() == 3L) {
+                statusMessage = "Account is FROZEN and cannot execute trades";
+            }
+            
+            throw new ApiException(ErrorCode.INVALID_INPUT, statusMessage);
+        }
+    }
+
     private void validateSellHoldings(Account account, Long instrumentId, BigDecimal quantity) {
         Holding holding = holdingMapper.findByAccountAndInstrument(account.getAccountId(), instrumentId);
         
@@ -406,6 +435,13 @@ public class OrderService {
             throw new ApiException(ErrorCode.ORDER_NOT_FOUND, "Order not found with id: " + orderId);
         }
         
+        // Validate account status is still active before execution
+        Account account = accountMapper.findById(order.getAccountId());
+        if (account == null) {
+            throw new ApiException(ErrorCode.ACCOUNT_NOT_FOUND, "Account not found with id: " + order.getAccountId());
+        }
+        validateAccountStatus(account);
+        
         // Validate order is in PENDING state (1L) before execution
         if (order.getStatus() != 1L) {
             String statusName = order.getStatus() == 2L ? "EXECUTED" : 
@@ -446,11 +482,6 @@ public class OrderService {
         
         // For BUY orders, validate account still has sufficient funds at execution time
         if ("BUY".equalsIgnoreCase(order.getSide())) {
-            Account account = accountMapper.findById(order.getAccountId());
-            if (account == null) {
-                throw new ApiException(ErrorCode.ACCOUNT_NOT_FOUND, "Account not found with id: " + order.getAccountId());
-            }
-            
             BigDecimal totalCost = order.getQuantity().multiply(executionPrice);
             if (account.getSettledCash() == null || account.getSettledCash().compareTo(totalCost) < 0) {
                 throw new ApiException(ErrorCode.INVALID_INPUT,
@@ -462,7 +493,7 @@ public class OrderService {
         
         // For SELL orders, validate account still holds the required shares at execution time
         if ("SELL".equalsIgnoreCase(order.getSide())) {
-            validateSellHoldings(accountMapper.findById(order.getAccountId()), order.getInstrumentId(), order.getQuantity());
+            validateSellHoldings(account, order.getInstrumentId(), order.getQuantity());
         }
         
         // Update order to EXECUTED status
@@ -485,7 +516,6 @@ public class OrderService {
         
         // Update account settled cash
         BigDecimal totalValue = order.getQuantity().multiply(executionPrice);
-        Account account = accountMapper.findById(order.getAccountId());
         if (account != null) {
             if ("BUY".equalsIgnoreCase(order.getSide())) {
                 // Decrease settled cash
