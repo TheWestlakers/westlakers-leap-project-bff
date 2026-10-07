@@ -10,34 +10,13 @@ public interface HoldingMapper {
 
     @Select("SELECT holding_id, account_id, instrument_id, quantity, average_price " +
             "FROM holdings WHERE holding_id = #{holdingId}")
-    @Results({
-            @Result(property = "holdingId", column = "holding_id"),
-            @Result(property = "accountId", column = "account_id"),
-            @Result(property = "instrumentId", column = "instrument_id"),
-            @Result(property = "quantity", column = "quantity"),
-            @Result(property = "averagePrice", column = "average_price")
-    })
     Holding findById(Long holdingId);
 
     @Select("SELECT holding_id, account_id, instrument_id, quantity, average_price FROM holdings")
-    @Results({
-            @Result(property = "holdingId", column = "holding_id"),
-            @Result(property = "accountId", column = "account_id"),
-            @Result(property = "instrumentId", column = "instrument_id"),
-            @Result(property = "quantity", column = "quantity"),
-            @Result(property = "averagePrice", column = "average_price")
-    })
     List<Holding> findAll();
 
     @Select("SELECT holding_id, account_id, instrument_id, quantity, average_price " +
             "FROM holdings WHERE account_id = #{accountId}")
-    @Results({
-            @Result(property = "holdingId", column = "holding_id"),
-            @Result(property = "accountId", column = "account_id"),
-            @Result(property = "instrumentId", column = "instrument_id"),
-            @Result(property = "quantity", column = "quantity"),
-            @Result(property = "averagePrice", column = "average_price")
-    })
     List<Holding> findByAccountId(Long accountId);
 
     @Insert("INSERT INTO holdings (account_id, instrument_id, quantity, average_price) " +
@@ -51,4 +30,10 @@ public interface HoldingMapper {
 
     @Delete("DELETE FROM holdings WHERE holding_id = #{holdingId}")
     int delete(Long holdingId);
+    @Select("SELECT holding_id, account_id, instrument_id, quantity, average_price " +
+            "FROM holdings WHERE account_id = #{accountId} AND instrument_id = #{instrumentId}")
+    Holding findByAccountAndInstrument(@Param("accountId") Long accountId, @Param("instrumentId") Long instrumentId);
+
+    @Delete("DELETE FROM holdings WHERE account_id = #{accountId} AND instrument_id = #{instrumentId}")
+    int deleteByAccountAndInstrument(@Param("accountId") Long accountId, @Param("instrumentId") Long instrumentId);
 }
