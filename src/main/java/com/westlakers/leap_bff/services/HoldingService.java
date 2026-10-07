@@ -11,6 +11,8 @@ import org.springframework.transaction.annotation.Transactional;
 import com.westlakers.leap_bff.mappers.HoldingMapper;
 import com.westlakers.leap_bff.entities.Holding;
 import com.westlakers.leap_bff.dtos.HoldingDTO;
+import com.westlakers.leap_bff.exceptions.ApiException;
+import com.westlakers.leap_bff.exceptions.ErrorCode;
 
 @Service
 public class HoldingService {
@@ -26,7 +28,7 @@ public class HoldingService {
         List<Holding> holdings = this.holdingMapper.findAll();
 
         if(holdings.size() == 0) {
-            throw new RuntimeException("List was zero");
+            throw new ApiException(ErrorCode.EMPTY_HOLDINGS_LIST);
         }
         // Convert Holding entities to DTOs
         return holdings.stream()
@@ -39,7 +41,7 @@ public class HoldingService {
         Holding holding = this.holdingMapper.findById(id);
 
         if(holding == null) {
-            throw new RuntimeException("Holding not found with id: " + id);
+            throw new ApiException(ErrorCode.HOLDING_NOT_FOUND, "Holding not found with id: " + id);
         }
 
         return HoldingDTO.fromEntity(holding);
@@ -50,7 +52,7 @@ public class HoldingService {
         List<Holding> holdings = this.holdingMapper.findByAccountId(accountId);
 
         if(holdings.size() == 0) {
-            throw new RuntimeException("No holdings found for account id: " + accountId);
+            throw new ApiException(ErrorCode.HOLDING_NOT_FOUND, "No holdings found for account id: " + accountId);
         }
         // Convert Holding entities to DTOs
         return holdings.stream()
@@ -62,22 +64,22 @@ public class HoldingService {
     public HoldingDTO createHolding(Holding holding) {
         // Validate required fields
         if(holding.getAccountId() == null) {
-            throw new RuntimeException("Account ID is required");
+            throw new ApiException(ErrorCode.ACCOUNT_ID_REQUIRED);
         }
         if(holding.getInstrumentId() == null) {
-            throw new RuntimeException("Instrument ID is required");
+            throw new ApiException(ErrorCode.INSTRUMENT_ID_REQUIRED);
         }
         if(holding.getQuantity() == null) {
-            throw new RuntimeException("Quantity is required");
+            throw new ApiException(ErrorCode.QUANTITY_REQUIRED);
         }
         if(holding.getAveragePrice() == null) {
-            throw new RuntimeException("Average Price is required");
+            throw new ApiException(ErrorCode.AVERAGE_PRICE_REQUIRED);
         }
 
         // Insert the holding
         int result = this.holdingMapper.insert(holding);
         if(result == 0) {
-            throw new RuntimeException("Failed to create holding");
+            throw new ApiException(ErrorCode.HOLDING_CREATION_FAILED);
         }
 
         // Return the created holding
@@ -89,7 +91,7 @@ public class HoldingService {
         // Verify holding exists
         Holding existingHolding = this.holdingMapper.findById(holdingId);
         if(existingHolding == null) {
-            throw new RuntimeException("Holding not found with id: " + holdingId);
+            throw new ApiException(ErrorCode.HOLDING_NOT_FOUND, "Holding not found with id: " + holdingId);
         }
 
         // Set the holding ID to ensure we're updating the correct record
@@ -98,7 +100,7 @@ public class HoldingService {
         // Update the holding
         int result = this.holdingMapper.update(updatedHolding);
         if(result == 0) {
-            throw new RuntimeException("Failed to update holding with id: " + holdingId);
+            throw new ApiException(ErrorCode.HOLDING_UPDATE_FAILED, "Failed to update holding with id: " + holdingId);
         }
 
         // Fetch and return the updated holding
@@ -111,13 +113,13 @@ public class HoldingService {
         // Verify holding exists
         Holding holding = this.holdingMapper.findById(holdingId);
         if(holding == null) {
-            throw new RuntimeException("Holding not found with id: " + holdingId);
+            throw new ApiException(ErrorCode.HOLDING_NOT_FOUND, "Holding not found with id: " + holdingId);
         }
 
         // Delete the holding
         int result = this.holdingMapper.delete(holdingId);
         if(result == 0) {
-            throw new RuntimeException("Failed to delete holding with id: " + holdingId);
+            throw new ApiException(ErrorCode.HOLDING_DELETE_FAILED, "Failed to delete holding with id: " + holdingId);
         }
     }
 
@@ -125,19 +127,19 @@ public class HoldingService {
     public HoldingDTO upsertHoldingOnTrade(Long accountId, Long instrumentId, 
                                            BigDecimal quantity, BigDecimal executionPrice, String side) {
         if (accountId == null || accountId <= 0) {
-            throw new RuntimeException("Valid Account ID is required");
+            throw new ApiException(ErrorCode.ACCOUNT_ID_REQUIRED);
         }
         if (instrumentId == null || instrumentId <= 0) {
-            throw new RuntimeException("Valid Instrument ID is required");
+            throw new ApiException(ErrorCode.INSTRUMENT_ID_REQUIRED);
         }
         if (quantity == null || quantity.compareTo(BigDecimal.ZERO) <= 0) {
-            throw new RuntimeException("Quantity must be greater than 0");
+            throw new ApiException(ErrorCode.INVALID_QUANTITY);
         }
         if (executionPrice == null || executionPrice.compareTo(BigDecimal.ZERO) <= 0) {
-            throw new RuntimeException("Execution price must be greater than 0");
+            throw new ApiException(ErrorCode.INVALID_PRICE);
         }
         if (side == null || !side.toUpperCase().matches("^(BUY|SELL)$")) {
-            throw new RuntimeException("Side must be either BUY or SELL");
+            throw new ApiException(ErrorCode.INVALID_INPUT);
         }
 
         String normalizedSide = side.toUpperCase();
@@ -148,7 +150,7 @@ public class HoldingService {
         if (existingHolding == null) {
             // No existing holding, should only be valid for BUY
             if (!normalizedSide.equals("BUY")) {
-                throw new RuntimeException("Cannot sell shares that are not owned. Account has no position in instrument.");
+                throw new ApiException(ErrorCode.INVALID_QUANTITY, "Cannot sell shares that are not owned. Account has no position in instrument.");
             }
             
             // Create new holding
@@ -160,7 +162,7 @@ public class HoldingService {
             
             int result = this.holdingMapper.insert(newHolding);
             if (result == 0) {
-                throw new RuntimeException("Failed to create holding during BUY trade");
+                throw new ApiException(ErrorCode.HOLDING_CREATION_FAILED, "Failed to create holding during BUY trade");
             }
             
             return HoldingDTO.fromEntity(newHolding);
@@ -183,7 +185,7 @@ public class HoldingService {
             
             int result = this.holdingMapper.update(existingHolding);
             if (result == 0) {
-                throw new RuntimeException("Failed to update holding during BUY trade");
+                throw new ApiException(ErrorCode.HOLDING_UPDATE_FAILED, "Failed to update holding during BUY trade");
             }
             
             return HoldingDTO.fromEntity(existingHolding);
@@ -192,7 +194,7 @@ public class HoldingService {
             BigDecimal oldQuantity = existingHolding.getQuantity();
             
             if (quantity.compareTo(oldQuantity) > 0) {
-                throw new RuntimeException(
+                throw new ApiException(ErrorCode.INVALID_QUANTITY,
                     String.format("Cannot sell %.4f shares - only %.4f available", quantity, oldQuantity)
                 );
             }
@@ -203,7 +205,7 @@ public class HoldingService {
                 // Quantity is 0 then delete the holding
                 int result = this.holdingMapper.deleteByAccountAndInstrument(accountId, instrumentId);
                 if (result == 0) {
-                    throw new RuntimeException("Failed to delete holding after selling all shares");
+                    throw new ApiException(ErrorCode.HOLDING_DELETE_FAILED, "Failed to delete holding after selling all shares");
                 }
                 
                 // Create a response DTO showing the liquidated position
@@ -220,7 +222,7 @@ public class HoldingService {
                 
                 int result = this.holdingMapper.update(existingHolding);
                 if (result == 0) {
-                    throw new RuntimeException("Failed to update holding during SELL trade");
+                    throw new ApiException(ErrorCode.HOLDING_UPDATE_FAILED, "Failed to update holding during SELL trade");
                 }
                 
                 return HoldingDTO.fromEntity(existingHolding);

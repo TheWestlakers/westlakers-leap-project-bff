@@ -14,6 +14,8 @@ import com.westlakers.leap_bff.entities.AccountStatus;
 import com.westlakers.leap_bff.entities.AccountType;
 import com.westlakers.leap_bff.dtos.AccountDTO;
 import com.westlakers.leap_bff.dtos.AccountProfileDTO;
+import com.westlakers.leap_bff.exceptions.ApiException;
+import com.westlakers.leap_bff.exceptions.ErrorCode;
 
 @Service
 public class AccountService {
@@ -34,7 +36,7 @@ public class AccountService {
         List<Account> accounts = this.accountMapper.findAll();
 
         if(accounts.size() == 0) {
-            throw new RuntimeException("List was zero");
+            throw new ApiException(ErrorCode.EMPTY_RESULTS);
         }
         // Convert Account entities to DTOs, fetching status for each account
         return accounts.stream()
@@ -50,7 +52,7 @@ public class AccountService {
         Account account = this.accountMapper.findById(id);
 
         if(account == null) {
-            throw new RuntimeException("Account not found with id: " + id);
+            throw new ApiException(ErrorCode.ACCOUNT_NOT_FOUND, "Account not found with id: " + id);
         }
 
         AccountStatus accountStatus = accountStatusMapper.findById(account.getAccountStatusId());
@@ -62,7 +64,7 @@ public class AccountService {
         List<Account> accounts = this.accountMapper.findByUserId(userId);
 
         if(accounts.size() == 0) {
-            throw new RuntimeException("No accounts found for user id: " + userId);
+            throw new ApiException(ErrorCode.ACCOUNT_NOT_FOUND, "No accounts found for user id: " + userId);
         }
         // Convert Account entities to DTOs, fetching status for each account
         return accounts.stream()
@@ -82,17 +84,17 @@ public class AccountService {
         Account account = this.accountMapper.findById(accountId);
 
         if(account == null) {
-            throw new RuntimeException("Account not found with id: " + accountId);
+            throw new ApiException(ErrorCode.ACCOUNT_NOT_FOUND, "Account not found with id: " + accountId);
         }
 
         AccountStatus accountStatus = accountStatusMapper.findById(account.getAccountStatusId());
         if(accountStatus == null) {
-            throw new RuntimeException("Account status not found for account id: " + accountId);
+            throw new ApiException(ErrorCode.RESOURCE_NOT_FOUND, "Account status not found for account id: " + accountId);
         }
 
         AccountType accountType = accountTypeMapper.findById(account.getAccountTypeId());
         if(accountType == null) {
-            throw new RuntimeException("Account type not found for account id: " + accountId);
+            throw new ApiException(ErrorCode.RESOURCE_NOT_FOUND, "Account type not found for account id: " + accountId);
         }
 
         return AccountProfileDTO.fromEntities(account, accountStatus, accountType);
@@ -102,19 +104,19 @@ public class AccountService {
     public AccountDTO createAccount(Account account) {
         // Validate required fields
         if(account.getUserId() == null) {
-            throw new RuntimeException("User ID is required");
+            throw new ApiException(ErrorCode.MISSING_REQUIRED_FIELD);
         }
         if(account.getAccountTypeId() == null) {
-            throw new RuntimeException("Account Type ID is required");
+            throw new ApiException(ErrorCode.MISSING_REQUIRED_FIELD);
         }
         if(account.getAccountStatusId() == null) {
-            throw new RuntimeException("Account Status ID is required");
+            throw new ApiException(ErrorCode.MISSING_REQUIRED_FIELD);
         }
 
         // Insert the account
         int result = this.accountMapper.insert(account);
         if(result == 0) {
-            throw new RuntimeException("Failed to create account");
+            throw new ApiException(ErrorCode.ACCOUNT_CREATION_FAILED);
         }
 
         // Fetch and return the created account
@@ -127,7 +129,7 @@ public class AccountService {
         // Verify account exists
         Account existingAccount = this.accountMapper.findById(accountId);
         if(existingAccount == null) {
-            throw new RuntimeException("Account not found with id: " + accountId);
+            throw new ApiException(ErrorCode.ACCOUNT_NOT_FOUND, "Account not found with id: " + accountId);
         }
 
         // Set the account ID to ensure we're updating the correct record
@@ -136,7 +138,7 @@ public class AccountService {
         // Update the account
         int result = this.accountMapper.update(updatedAccount);
         if(result == 0) {
-            throw new RuntimeException("Failed to update account with id: " + accountId);
+            throw new ApiException(ErrorCode.UPDATE_FAILED, "Failed to update account with id: " + accountId);
         }
 
         // Fetch and return the updated account
@@ -150,13 +152,13 @@ public class AccountService {
         // Verify account exists
         Account account = this.accountMapper.findById(accountId);
         if(account == null) {
-            throw new RuntimeException("Account not found with id: " + accountId);
+            throw new ApiException(ErrorCode.ACCOUNT_NOT_FOUND, "Account not found with id: " + accountId);
         }
 
         // Delete the account
         int result = this.accountMapper.delete(accountId);
         if(result == 0) {
-            throw new RuntimeException("Failed to delete account with id: " + accountId);
+            throw new ApiException(ErrorCode.DELETE_FAILED, "Failed to delete account with id: " + accountId);
         }
     }
 }
