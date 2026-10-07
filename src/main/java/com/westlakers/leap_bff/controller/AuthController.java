@@ -12,6 +12,8 @@ import com.westlakers.leap_bff.services.AuthenticationService;
 import com.westlakers.leap_bff.security.JwtService;
 import com.westlakers.leap_bff.dtos.LoginRequest;
 import com.westlakers.leap_bff.dtos.LoginResponse;
+import com.westlakers.leap_bff.dtos.RegisterRequest;
+import com.westlakers.leap_bff.dtos.RegisterResponse;
 
 
 
@@ -26,6 +28,11 @@ public class AuthController {
     public LoginResponse login(@RequestBody LoginRequest request) {
         String token = authenticationService.authenticate(request);
         return new LoginResponse(token);
+    }
+
+    @PostMapping("/register")
+    public RegisterResponse register(@RequestBody RegisterRequest request) {
+        return authenticationService.register(request);
     }
 
     @GetMapping("/validate")
