@@ -206,20 +206,6 @@ public class OrderService {
         return buildTradeExecutionResponse(order, "MARKET order created successfully. Awaiting execution.");
     }
 
-    /**
-     * Create a limit order.
-     * 
-     * Limit orders wait for execution until market price reaches the specified limit price with these characteristics:
-     * - Execute only when market price reaches or passes limit price
-     * - BUY orders: wait for price to drop to limit price or lower
-     * - SELL orders: wait for price to rise to limit price or higher
-     * - Status set to PENDING (waiting for price conditions)
-     * - Provides price protection against unfavorable fills
-     * 
-     * @param request LimitOrderRequest containing account, instrument, side, quantity, and limit price
-     * @return TradeExecutionResponse with order details
-     * @throws ApiException if validation fails or order creation fails
-     */
     @Transactional
     public TradeExecutionResponse createLimitTrade(LimitOrderRequest request) {
         // Validation
@@ -356,15 +342,6 @@ public class OrderService {
         if (limitPrice == null || limitPrice.compareTo(BigDecimal.ZERO) <= 0) {
             throw new ApiException(ErrorCode.INVALID_PRICE, "Limit price must be greater than 0");
         }
-        
-        // Ensure limit price is provided for limit orders
-        String sideUpper = side.toUpperCase();
-        if ("BUY".equals(sideUpper) || "SELL".equals(sideUpper)) {
-            // BUY orders: Limit price represents max price willing to pay
-            // SELL orders: Limit price represents min price willing to accept
-            // Both are valid regardless of current market price
-            // (Additional market price validation could be added if current price is available)
-        }
     }
 
     private void validateAccountStatus(Account account) {
@@ -372,17 +349,17 @@ public class OrderService {
             throw new ApiException(ErrorCode.INVALID_INPUT, "Account status not found for account id: " + account.getAccountId());
         }
         
-        // Validate account status is OPEN (status ID 1)
-        // 1 = OPEN, 2 = CLOSED, 3 = FROZEN
-        Long openStatusId = 1L; // OPEN status allows trading
+        Long openStatusId = 1L;
+        Long closedStatusId = 2L;
+        Long frozenStatusId = 3L;
         
         if (!account.getAccountStatusId().equals(openStatusId)) {
             String statusMessage = "Account status does not allow trading";
             
             // Provide more specific error message based on status
-            if (account.getAccountStatusId() == 2L) {
+            if (account.getAccountStatusId().equals(closedStatusId)) {
                 statusMessage = "Account is CLOSED and cannot execute trades";
-            } else if (account.getAccountStatusId() == 3L) {
+            } else if (account.getAccountStatusId().equals(frozenStatusId)) {
                 statusMessage = "Account is FROZEN and cannot execute trades";
             }
             
