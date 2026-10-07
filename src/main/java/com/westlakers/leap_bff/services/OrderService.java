@@ -419,6 +419,29 @@ public class OrderService {
             throw new RuntimeException("Execution price must be greater than 0");
         }
         
+        // For LIMIT orders, validate execution price satisfies the limit conditions
+        if ("LIMIT".equalsIgnoreCase(order.getOrderType())) {
+            if (order.getLimitPrice() != null) {
+                if ("BUY".equalsIgnoreCase(order.getSide())) {
+                    // BUY limit orders execute only at or below the limit price
+                    if (executionPrice.compareTo(order.getLimitPrice()) > 0) {
+                        throw new RuntimeException(
+                            "Execution price $" + executionPrice + 
+                            " exceeds BUY limit price $" + order.getLimitPrice()
+                        );
+                    }
+                } else if ("SELL".equalsIgnoreCase(order.getSide())) {
+                    // SELL limit orders execute only at or above the limit price
+                    if (executionPrice.compareTo(order.getLimitPrice()) < 0) {
+                        throw new RuntimeException(
+                            "Execution price $" + executionPrice + 
+                            " is below SELL limit price $" + order.getLimitPrice()
+                        );
+                    }
+                }
+            }
+        }
+        
         // For BUY orders, validate account still has sufficient funds at execution time
         if ("BUY".equalsIgnoreCase(order.getSide())) {
             Account account = accountMapper.findById(order.getAccountId());
