@@ -3,6 +3,7 @@ package com.westlakers.leap_bff.services;
 import com.westlakers.leap_bff.dtos.HoldingDTO;
 import com.westlakers.leap_bff.entities.Holding;
 import com.westlakers.leap_bff.mappers.HoldingMapper;
+import com.westlakers.leap_bff.exceptions.ApiException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.InjectMocks;
@@ -70,7 +71,7 @@ class HoldingServiceTest {
         when(holdingMapper.findAll()).thenReturn(Collections.emptyList());
 
         // Act & Assert
-        assertThrows(RuntimeException.class, () -> holdingService.getAllHoldings());
+        assertThrows(ApiException.class, () -> holdingService.getAllHoldings());
         
         // Verify the only call was findAll
         verify(holdingMapper, times(1)).findAll();
@@ -97,7 +98,7 @@ class HoldingServiceTest {
         when(holdingMapper.findById(999L)).thenReturn(null);
 
         // Act & Assert
-        assertThrows(RuntimeException.class, () -> holdingService.getHoldingById(999L));
+        assertThrows(ApiException.class, () -> holdingService.getHoldingById(999L));
         
         // Verify the lookup was attempted
         verify(holdingMapper, times(1)).findById(999L);
@@ -125,7 +126,7 @@ class HoldingServiceTest {
         when(holdingMapper.findByAccountId(999L)).thenReturn(Collections.emptyList());
 
         // Act & Assert
-        assertThrows(RuntimeException.class, () -> holdingService.getHoldingsByAccountId(999L));
+        assertThrows(ApiException.class, () -> holdingService.getHoldingsByAccountId(999L));
         
         // Verify the lookup was attempted
         verify(holdingMapper, times(1)).findByAccountId(999L);
@@ -151,7 +152,7 @@ class HoldingServiceTest {
         testHolding.setQuantity(BigDecimal.ZERO);
 
         // Act & Assert
-        assertThrows(RuntimeException.class, () -> holdingService.createHolding(testHolding));
+        assertThrows(ApiException.class, () -> holdingService.createHolding(testHolding));
         
         // Verify validation occurred before mapper call
         verify(holdingMapper, never()).insert(any());
@@ -163,7 +164,7 @@ class HoldingServiceTest {
         testHolding.setQuantity(new BigDecimal("-100.00"));
 
         // Act & Assert
-        assertThrows(RuntimeException.class, () -> holdingService.createHolding(testHolding));
+        assertThrows(ApiException.class, () -> holdingService.createHolding(testHolding));
         
         // Verify validation occurred before mapper call
         verify(holdingMapper, never()).insert(any());
@@ -175,7 +176,7 @@ class HoldingServiceTest {
         testHolding.setAveragePrice(BigDecimal.ZERO);
 
         // Act & Assert
-        assertThrows(RuntimeException.class, () -> holdingService.createHolding(testHolding));
+        assertThrows(ApiException.class, () -> holdingService.createHolding(testHolding));
         
         // Verify validation occurred before mapper call
         verify(holdingMapper, never()).insert(any());
@@ -187,7 +188,7 @@ class HoldingServiceTest {
         testHolding.setAveragePrice(new BigDecimal("-50.00"));
 
         // Act & Assert
-        assertThrows(RuntimeException.class, () -> holdingService.createHolding(testHolding));
+        assertThrows(ApiException.class, () -> holdingService.createHolding(testHolding));
         
         // Verify validation occurred before mapper call
         verify(holdingMapper, never()).insert(any());
@@ -218,7 +219,7 @@ class HoldingServiceTest {
         when(holdingMapper.findById(999L)).thenReturn(null);
 
         // Act & Assert
-        assertThrows(RuntimeException.class, () -> holdingService.updateHolding(999L, testHolding));
+        assertThrows(ApiException.class, () -> holdingService.updateHolding(999L, testHolding));
         
         // Verify lookup was attempted
         verify(holdingMapper, times(1)).findById(999L);
@@ -246,7 +247,7 @@ class HoldingServiceTest {
         when(holdingMapper.findById(999L)).thenReturn(null);
 
         // Act & Assert
-        assertThrows(RuntimeException.class, () -> holdingService.deleteHolding(999L));
+        assertThrows(ApiException.class, () -> holdingService.deleteHolding(999L));
         
         // Verify lookup was attempted
         verify(holdingMapper, times(1)).findById(999L);
@@ -396,7 +397,7 @@ class HoldingServiceTest {
         when(holdingMapper.findByAccountAndInstrument(accountId, instrumentId)).thenReturn(existingHolding);
 
         // Act & Assert
-        assertThrows(RuntimeException.class, () ->
+        assertThrows(ApiException.class, () ->
             holdingService.upsertHoldingOnTrade(accountId, instrumentId, quantity, executionPrice, side)
         );
         verify(holdingMapper, times(1)).findByAccountAndInstrument(accountId, instrumentId);
@@ -416,7 +417,7 @@ class HoldingServiceTest {
         when(holdingMapper.findByAccountAndInstrument(accountId, instrumentId)).thenReturn(null);
 
         // Act & Assert
-        assertThrows(RuntimeException.class, () ->
+        assertThrows(ApiException.class, () ->
             holdingService.upsertHoldingOnTrade(accountId, instrumentId, quantity, executionPrice, side)
         );
         verify(holdingMapper, times(1)).findByAccountAndInstrument(accountId, instrumentId);
@@ -432,7 +433,7 @@ class HoldingServiceTest {
         BigDecimal executionPrice = new BigDecimal("55.00");
 
         // Act & Assert
-        assertThrows(RuntimeException.class, () ->
+        assertThrows(ApiException.class, () ->
             holdingService.upsertHoldingOnTrade(invalidAccountId, 1L, quantity, executionPrice, "BUY")
         );
     }
@@ -445,7 +446,7 @@ class HoldingServiceTest {
         BigDecimal executionPrice = new BigDecimal("55.00");
 
         // Act & Assert
-        assertThrows(RuntimeException.class, () ->
+        assertThrows(ApiException.class, () ->
             holdingService.upsertHoldingOnTrade(1L, invalidInstrumentId, quantity, executionPrice, "BUY")
         );
     }
@@ -457,7 +458,7 @@ class HoldingServiceTest {
         BigDecimal executionPrice = new BigDecimal("55.00");
 
         // Act & Assert
-        assertThrows(RuntimeException.class, () ->
+        assertThrows(ApiException.class, () ->
             holdingService.upsertHoldingOnTrade(1L, 1L, invalidQuantity, executionPrice, "BUY")
         );
     }
@@ -469,7 +470,7 @@ class HoldingServiceTest {
         BigDecimal executionPrice = new BigDecimal("55.00");
 
         // Act & Assert
-        assertThrows(RuntimeException.class, () ->
+        assertThrows(ApiException.class, () ->
             holdingService.upsertHoldingOnTrade(1L, 1L, negativeQuantity, executionPrice, "BUY")
         );
     }
@@ -481,7 +482,7 @@ class HoldingServiceTest {
         BigDecimal invalidPrice = BigDecimal.ZERO;
 
         // Act & Assert
-        assertThrows(RuntimeException.class, () ->
+        assertThrows(ApiException.class, () ->
             holdingService.upsertHoldingOnTrade(1L, 1L, quantity, invalidPrice, "BUY")
         );
     }
@@ -493,7 +494,7 @@ class HoldingServiceTest {
         BigDecimal negativePrice = new BigDecimal("-55.00");
 
         // Act & Assert
-        assertThrows(RuntimeException.class, () ->
+        assertThrows(ApiException.class, () ->
             holdingService.upsertHoldingOnTrade(1L, 1L, quantity, negativePrice, "BUY")
         );
     }
@@ -506,7 +507,7 @@ class HoldingServiceTest {
         String invalidSide = "INVALID";
 
         // Act & Assert
-        assertThrows(RuntimeException.class, () ->
+        assertThrows(ApiException.class, () ->
             holdingService.upsertHoldingOnTrade(1L, 1L, quantity, executionPrice, invalidSide)
         );
     }
@@ -518,7 +519,7 @@ class HoldingServiceTest {
         BigDecimal executionPrice = new BigDecimal("55.00");
 
         // Act & Assert
-        assertThrows(RuntimeException.class, () ->
+        assertThrows(ApiException.class, () ->
             holdingService.upsertHoldingOnTrade(1L, 1L, quantity, executionPrice, null)
         );
     }
@@ -536,7 +537,7 @@ class HoldingServiceTest {
         when(holdingMapper.insert(any())).thenReturn(0); // Insertion fails
 
         // Act & Assert
-        assertThrows(RuntimeException.class, () ->
+        assertThrows(ApiException.class, () ->
             holdingService.upsertHoldingOnTrade(accountId, instrumentId, quantity, executionPrice, side)
         );
         verify(holdingMapper, times(1)).insert(any());
@@ -561,7 +562,7 @@ class HoldingServiceTest {
         when(holdingMapper.update(any())).thenReturn(0); // Update fails
 
         // Act & Assert
-        assertThrows(RuntimeException.class, () ->
+        assertThrows(ApiException.class, () ->
             holdingService.upsertHoldingOnTrade(accountId, instrumentId, quantity, executionPrice, side)
         );
         verify(holdingMapper, times(1)).update(any());
@@ -586,7 +587,7 @@ class HoldingServiceTest {
         when(holdingMapper.update(any())).thenReturn(0); // Update fails
 
         // Act & Assert
-        assertThrows(RuntimeException.class, () ->
+        assertThrows(ApiException.class, () ->
             holdingService.upsertHoldingOnTrade(accountId, instrumentId, quantity, executionPrice, side)
         );
         verify(holdingMapper, times(1)).update(any());
@@ -611,7 +612,7 @@ class HoldingServiceTest {
         when(holdingMapper.deleteByAccountAndInstrument(accountId, instrumentId)).thenReturn(0); // Delete fails
 
         // Act & Assert
-        assertThrows(RuntimeException.class, () ->
+        assertThrows(ApiException.class, () ->
             holdingService.upsertHoldingOnTrade(accountId, instrumentId, quantity, executionPrice, side)
         );
         verify(holdingMapper, times(1)).deleteByAccountAndInstrument(accountId, instrumentId);

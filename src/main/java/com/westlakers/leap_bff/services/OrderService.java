@@ -117,34 +117,34 @@ public class OrderService {
     public OrderDTO createOrder(Order order) {
         // Validate required fields
         if(order.getAccountId() == null) {
-            throw new RuntimeException("Account ID is required");
+            throw new ApiException(ErrorCode.ACCOUNT_ID_REQUIRED, "Account ID is required");
         }
         if(order.getInstrumentId() == null) {
-            throw new RuntimeException("Instrument ID is required");
+            throw new ApiException(ErrorCode.INSTRUMENT_ID_REQUIRED, "Instrument ID is required");
         }
         if(order.getSide() == null || order.getSide().isEmpty()) {
-            throw new RuntimeException("Side is required (BUY or SELL)");
+            throw new ApiException(ErrorCode.MISSING_REQUIRED_FIELD, "Side is required (BUY or SELL)");
         }
         if(!order.getSide().equals("BUY") && !order.getSide().equals("SELL")) {
-            throw new RuntimeException("Side must be either BUY or SELL");
+            throw new ApiException(ErrorCode.INVALID_INPUT, "Side must be either BUY or SELL");
         }
         if(order.getOrderType() == null || order.getOrderType().isEmpty()) {
-            throw new RuntimeException("Order Type is required");
+            throw new ApiException(ErrorCode.MISSING_REQUIRED_FIELD, "Order Type is required");
         }
         if(order.getQuantity() == null) {
-            throw new RuntimeException("Quantity is required");
+            throw new ApiException(ErrorCode.MISSING_REQUIRED_FIELD, "Quantity is required");
         }
         if(order.getQuantity().compareTo(BigDecimal.ZERO) <= 0) {
-            throw new RuntimeException("Quantity must be greater than zero");
+            throw new ApiException(ErrorCode.INVALID_QUANTITY, "Quantity must be greater than zero");
         }
         if(order.getStatus() == null) {
-            throw new RuntimeException("Status ID is required");
+            throw new ApiException(ErrorCode.MISSING_REQUIRED_FIELD, "Status ID is required");
         }
 
         // Insert the order
         int result = this.orderMapper.insert(order);
         if(result == 0) {
-            throw new RuntimeException("Failed to create order");
+            throw new ApiException(ErrorCode.ORDER_CREATION_FAILED, "Failed to create order");
         }
 
         // Fetch and return the created order

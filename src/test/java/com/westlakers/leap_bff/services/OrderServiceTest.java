@@ -3,6 +3,7 @@ package com.westlakers.leap_bff.services;
 import com.westlakers.leap_bff.dtos.*;
 import com.westlakers.leap_bff.entities.*;
 import com.westlakers.leap_bff.mappers.*;
+import com.westlakers.leap_bff.exceptions.ApiException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.InjectMocks;
@@ -80,6 +81,7 @@ class OrderServiceTest {
 
         testAccount = new Account();
         testAccount.setAccountId(1L);
+        testAccount.setAccountStatusId(1L); // OPEN status
         testAccount.setSettledCash(new BigDecimal("50000.00"));
 
         testInstrument = new Instrument();
@@ -138,7 +140,7 @@ class OrderServiceTest {
         when(orderMapper.findAll()).thenReturn(Collections.emptyList());
 
         // Act & Assert
-        assertThrows(RuntimeException.class, () -> orderService.getAllOrders());
+        assertThrows(ApiException.class, () -> orderService.getAllOrders());
     }
 
     @Test
@@ -163,7 +165,7 @@ class OrderServiceTest {
         when(orderMapper.findById(999L)).thenReturn(null);
 
         // Act & Assert
-        assertThrows(RuntimeException.class, () -> orderService.getOrderById(999L));
+        assertThrows(ApiException.class, () -> orderService.getOrderById(999L));
     }
 
     @Test
@@ -188,7 +190,7 @@ class OrderServiceTest {
         when(orderMapper.findByAccountId(999L)).thenReturn(Collections.emptyList());
 
         // Act & Assert
-        assertThrows(RuntimeException.class, () -> orderService.getOrdersByAccountId(999L));
+        assertThrows(ApiException.class, () -> orderService.getOrdersByAccountId(999L));
     }
 
     @Test
@@ -245,7 +247,7 @@ class OrderServiceTest {
         when(orderStatusMapper.findById(1L)).thenReturn(testStatus);
 
         // Act & Assert
-        assertThrows(RuntimeException.class, () -> orderService.createOrder(testOrder));
+        assertThrows(ApiException.class, () -> orderService.createOrder(testOrder));
     }
 
     @Test
@@ -257,7 +259,7 @@ class OrderServiceTest {
         when(orderStatusMapper.findById(1L)).thenReturn(testStatus);
 
         // Act & Assert
-        assertThrows(RuntimeException.class, () -> orderService.createOrder(testOrder));
+        assertThrows(ApiException.class, () -> orderService.createOrder(testOrder));
     }
 
     @Test
@@ -269,7 +271,7 @@ class OrderServiceTest {
         when(orderStatusMapper.findById(1L)).thenReturn(testStatus);
 
         // Act & Assert
-        assertThrows(RuntimeException.class, () -> orderService.createOrder(testOrder));
+        assertThrows(ApiException.class, () -> orderService.createOrder(testOrder));
     }
 
     @Test
@@ -297,7 +299,7 @@ class OrderServiceTest {
         when(orderMapper.findById(999L)).thenReturn(null);
 
         // Act & Assert
-        assertThrows(RuntimeException.class, () -> orderService.updateOrder(999L, testOrder));
+        assertThrows(ApiException.class, () -> orderService.updateOrder(999L, testOrder));
         verify(orderMapper, never()).update(any());
     }
 
@@ -320,7 +322,7 @@ class OrderServiceTest {
         when(orderMapper.findById(999L)).thenReturn(null);
 
         // Act & Assert
-        assertThrows(RuntimeException.class, () -> orderService.deleteOrder(999L));
+        assertThrows(ApiException.class, () -> orderService.deleteOrder(999L));
         verify(orderMapper, never()).delete(any());
     }
 
@@ -374,7 +376,7 @@ class OrderServiceTest {
         when(accountMapper.findById(1L)).thenReturn(null);
 
         // Act & Assert
-        assertThrows(RuntimeException.class, () -> orderService.createMarketTrade(testMarketOrderRequest));
+        assertThrows(ApiException.class, () -> orderService.createMarketTrade(testMarketOrderRequest));
         verify(orderMapper, never()).insert(any());
     }
 
@@ -385,7 +387,7 @@ class OrderServiceTest {
     //     when(instrumentMapper.findById(1L)).thenReturn(null);
 
     //     // Act & Assert
-    //     assertThrows(RuntimeException.class, () -> orderService.createMarketTrade(testMarketOrderRequest));
+    //     assertThrows(ApiException.class, () -> orderService.createMarketTrade(testMarketOrderRequest));
     //     verify(orderMapper, never()).insert(any());
     // }
 
@@ -397,7 +399,7 @@ class OrderServiceTest {
     //     when(instrumentMapper.findById(1L)).thenReturn(testInstrument);
 
     //     // Act & Assert
-    //     assertThrows(RuntimeException.class, () -> orderService.createMarketTrade(testMarketOrderRequest));
+    //     assertThrows(ApiException.class, () -> orderService.createMarketTrade(testMarketOrderRequest));
     //     verify(orderMapper, never()).insert(any());
     // }
 
@@ -410,7 +412,7 @@ class OrderServiceTest {
     //     when(holdingMapper.findByAccountAndInstrument(1L, 1L)).thenReturn(null);
 
     //     // Act & Assert
-    //     assertThrows(RuntimeException.class, () -> orderService.createMarketTrade(testMarketOrderRequest));
+    //     assertThrows(ApiException.class, () -> orderService.createMarketTrade(testMarketOrderRequest));
     //     verify(orderMapper, never()).insert(any());
     // }
 
@@ -466,7 +468,7 @@ class OrderServiceTest {
     //     when(accountMapper.findById(1L)).thenReturn(null);
 
     //     // Act & Assert
-    //     assertThrows(RuntimeException.class, () -> orderService.createLimitTrade(testLimitOrderRequest));
+    //     assertThrows(ApiException.class, () -> orderService.createLimitTrade(testLimitOrderRequest));
     //     verify(orderMapper, never()).insert(any());
     // }
 
@@ -477,7 +479,7 @@ class OrderServiceTest {
     //     when(instrumentMapper.findById(1L)).thenReturn(null);
 
     //     // Act & Assert
-    //     assertThrows(RuntimeException.class, () -> orderService.createLimitTrade(testLimitOrderRequest));
+    //     assertThrows(ApiException.class, () -> orderService.createLimitTrade(testLimitOrderRequest));
     //     verify(orderMapper, never()).insert(any());
     // }
 
@@ -489,7 +491,7 @@ class OrderServiceTest {
     //     when(instrumentMapper.findById(1L)).thenReturn(testInstrument);
 
     //     // Act & Assert
-    //     assertThrows(RuntimeException.class, () -> orderService.createLimitTrade(testLimitOrderRequest));
+    //     assertThrows(ApiException.class, () -> orderService.createLimitTrade(testLimitOrderRequest));
     //     verify(orderMapper, never()).insert(any());
     // }
 
@@ -501,7 +503,7 @@ class OrderServiceTest {
     //     when(instrumentMapper.findById(1L)).thenReturn(testInstrument);
 
     //     // Act & Assert
-    //     assertThrows(RuntimeException.class, () -> orderService.createLimitTrade(testLimitOrderRequest));
+    //     assertThrows(ApiException.class, () -> orderService.createLimitTrade(testLimitOrderRequest));
     //     verify(orderMapper, never()).insert(any());
     // }
 
@@ -559,7 +561,7 @@ class OrderServiceTest {
     //     when(orderMapper.findById(999L)).thenReturn(null);
 
     //     // Act & Assert
-    //     assertThrows(RuntimeException.class, () -> orderService.executeTrade(999L, new BigDecimal("150.00")));
+    //     assertThrows(ApiException.class, () -> orderService.executeTrade(999L, new BigDecimal("150.00")));
     //     verify(orderMapper, never()).update(any());
     // }
 
@@ -570,7 +572,7 @@ class OrderServiceTest {
     //     when(orderMapper.findById(1L)).thenReturn(testOrder);
 
     //     // Act & Assert
-    //     assertThrows(RuntimeException.class, () -> orderService.executeTrade(1L, new BigDecimal("150.00")));
+    //     assertThrows(ApiException.class, () -> orderService.executeTrade(1L, new BigDecimal("150.00")));
     //     verify(orderMapper, never()).update(any());
     // }
 
@@ -580,7 +582,7 @@ class OrderServiceTest {
     //     when(orderMapper.findById(1L)).thenReturn(testOrder);
 
     //     // Act & Assert
-    //     assertThrows(RuntimeException.class, () -> orderService.executeTrade(1L, new BigDecimal("0")));
+    //     assertThrows(ApiException.class, () -> orderService.executeTrade(1L, new BigDecimal("0")));
     //     verify(orderMapper, never()).update(any());
     // }
 
@@ -592,7 +594,7 @@ class OrderServiceTest {
     //     when(accountMapper.findById(1L)).thenReturn(testAccount);
 
     //     // Act & Assert
-    //     assertThrows(RuntimeException.class, () -> orderService.executeTrade(1L, new BigDecimal("150.00")));
+    //     assertThrows(ApiException.class, () -> orderService.executeTrade(1L, new BigDecimal("150.00")));
     //     verify(orderMapper, never()).update(any());
     // }
 
@@ -605,7 +607,7 @@ class OrderServiceTest {
     //     when(holdingMapper.findByAccountAndInstrument(1L, 1L)).thenReturn(null);
 
     //     // Act & Assert
-    //     assertThrows(RuntimeException.class, () -> orderService.executeTrade(1L, new BigDecimal("150.00")));
+    //     assertThrows(ApiException.class, () -> orderService.executeTrade(1L, new BigDecimal("150.00")));
     //     verify(orderMapper, never()).update(any());
     // }
 
@@ -637,7 +639,7 @@ class OrderServiceTest {
     //     when(orderMapper.findById(999L)).thenReturn(null);
 
     //     // Act & Assert
-    //     assertThrows(RuntimeException.class, () -> orderService.cancelTrade(999L));
+    //     assertThrows(ApiException.class, () -> orderService.cancelTrade(999L));
     //     verify(orderMapper, never()).update(any());
     // }
 
@@ -648,7 +650,7 @@ class OrderServiceTest {
     //     when(orderMapper.findById(1L)).thenReturn(testOrder);
 
     //     // Act & Assert
-    //     assertThrows(RuntimeException.class, () -> orderService.cancelTrade(1L));
+    //     assertThrows(ApiException.class, () -> orderService.cancelTrade(1L));
     //     verify(orderMapper, never()).update(any());
     // }
 
@@ -659,7 +661,7 @@ class OrderServiceTest {
     //     when(orderMapper.findById(1L)).thenReturn(testOrder);
 
     //     // Act & Assert
-    //     assertThrows(RuntimeException.class, () -> orderService.cancelTrade(1L));
+    //     assertThrows(ApiException.class, () -> orderService.cancelTrade(1L));
     //     verify(orderMapper, never()).update(any());
     // }
 }
