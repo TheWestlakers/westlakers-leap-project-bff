@@ -17,6 +17,8 @@ import com.westlakers.leap_bff.entities.Role;
 import com.westlakers.leap_bff.entities.UserStatus;
 import com.westlakers.leap_bff.dtos.UserDTO;
 import com.westlakers.leap_bff.dtos.UserProfileDTO;
+import com.westlakers.leap_bff.exceptions.ApiException;
+import com.westlakers.leap_bff.exceptions.ErrorCode;
 
 @Service
 public class UserService {
@@ -39,7 +41,7 @@ public class UserService {
         List<User> users = this.userMapper.findAll();
         
         if(users.isEmpty()) {
-            throw new IllegalStateException("No users available in the system");
+            throw new ApiException(ErrorCode.EMPTY_RESULTS);
         }
                 
         // Convert User entities to DTOs, fetching status for each user
@@ -54,13 +56,13 @@ public class UserService {
     @Transactional(readOnly = true)
     public UserDTO getUserById(Long id) {
         if(id == null || id <= 0) {
-            throw new IllegalArgumentException("User ID must be positive");
+            throw new ApiException(ErrorCode.INVALID_INPUT);
         }
         
         User user = this.userMapper.findById(id);
 
         if(user == null) {
-            throw new IllegalStateException("User not found with id: " + id);
+            throw new ApiException(ErrorCode.USER_NOT_FOUND, "User not found with id: " + id);
         }
         
         UserStatus userStatus = userStatusMapper.findById(user.getStatusId());
@@ -70,28 +72,28 @@ public class UserService {
     @Transactional(readOnly = true)
     public UserProfileDTO getUserProfile(Long userId) {
         if(userId == null || userId <= 0) {
-            throw new IllegalArgumentException("User ID must be positive");
+            throw new ApiException(ErrorCode.INVALID_INPUT);
         }
         
         User user = this.userMapper.findById(userId);
         
         if(user == null) {
-            throw new IllegalStateException("User not found with id: " + userId);
+            throw new ApiException(ErrorCode.USER_NOT_FOUND, "User not found with id: " + userId);
         }
         
         UserCredentials credentials = credentialsMapper.findByUserId(userId);
         if(credentials == null) {
-            throw new IllegalStateException("Credentials not found for user id: " + userId);
+            throw new ApiException(ErrorCode.RESOURCE_NOT_FOUND, "Credentials not found for user id: " + userId);
         }
         
         Role role = roleMapper.findById(credentials.getRoleId());
         if(role == null) {
-            throw new IllegalStateException("Role not found with id: " + credentials.getRoleId());
+            throw new ApiException(ErrorCode.RESOURCE_NOT_FOUND, "Role not found with id: " + credentials.getRoleId());
         }
         
         UserStatus userStatus = userStatusMapper.findById(user.getStatusId());
         if(userStatus == null) {
-            throw new IllegalStateException("User status not found with id: " + user.getStatusId());
+            throw new ApiException(ErrorCode.RESOURCE_NOT_FOUND, "User status not found with id: " + user.getStatusId());
         }
         
         return UserProfileDTO.fromEntities(user, credentials, userStatus, role);
@@ -99,6 +101,12 @@ public class UserService {
 
     @Transactional
     public UserDTO createUser(UserDTO userDTO) {        
+        // Validate that the status exists
+        UserStatus userStatus = userStatusMapper.findById(userDTO.getStatusId());
+        if(userStatus == null) {
+            throw new ApiException(ErrorCode.INVALID_INPUT, "Invalid status id: " + userDTO.getStatusId());
+        }
+        
         User user = new User();
         user.setFirstName(userDTO.getFirstName());
         user.setLastName(userDTO.getLastName());
@@ -109,23 +117,22 @@ public class UserService {
         
         int result = this.userMapper.insert(user);
         if(result == 0) {
-            throw new IllegalStateException("Failed to create user");
+            throw new ApiException(ErrorCode.CREATION_FAILED);
         }
         
-        UserStatus userStatus = userStatusMapper.findById(user.getStatusId());
         return UserDTO.fromEntity(user, userStatus);
     }
 
     @Transactional
     public UserDTO updateUser(Long id, UserDTO userDTO) {
         if(id == null || id <= 0) {
-            throw new IllegalArgumentException("User ID must be positive");
+            throw new ApiException(ErrorCode.INVALID_INPUT);
         }
         
         User existingUser = this.userMapper.findById(id);
         
         if(existingUser == null) {
-            throw new IllegalStateException("User not found with id: " + id);
+            throw new ApiException(ErrorCode.USER_NOT_FOUND, "User not found with id: " + id);
         }
         
         existingUser.setFirstName(userDTO.getFirstName());
@@ -137,7 +144,7 @@ public class UserService {
         
         int result = this.userMapper.update(existingUser);
         if(result == 0) {
-            throw new IllegalStateException("Failed to update user");
+            throw new ApiException(ErrorCode.UPDATE_FAILED);
         }
         
         UserStatus userStatus = userStatusMapper.findById(existingUser.getStatusId());
@@ -147,18 +154,18 @@ public class UserService {
     @Transactional
     public void deleteUser(Long id) {
         if(id == null || id <= 0) {
-            throw new IllegalArgumentException("User ID must be positive");
+            throw new ApiException(ErrorCode.INVALID_INPUT);
         }
         
         User user = this.userMapper.findById(id);
         
         if(user == null) {
-            throw new IllegalStateException("User not found with id: " + id);
+            throw new ApiException(ErrorCode.USER_NOT_FOUND, "User not found with id: " + id);
         }
         
         int result = this.userMapper.delete(id);
         if(result == 0) {
-            throw new IllegalStateException("Failed to delete user");
+            throw new ApiException(ErrorCode.DELETE_FAILED);
         }
     }
 }

@@ -29,9 +29,9 @@ copy .env.example .env
 Then update `.env` with your local values. There are currently 7 lines in the file, with 4 lines needing modification after the copy.
 
 
-# Remote Database SSH Tunnel Setup
+## Remote Database SSH Tunnel Setup
 
-## Quick Reference
+### Quick Reference
 
 **SSH Tunnel Command:**
 ```bash
@@ -45,12 +45,12 @@ ssh -N -L 8100:localhost:6379 <user>@<host ip>
   - `spring.sql.init.mode=never` (skip script initialization for shared remote DB)
   - `spring.jpa.hibernate.ddl-auto=none`
 
-## Verification
+### Verification
 - Port listening: `netstat -tuln | grep 5433`
 - Tunnel must stay open while developing
 - Run `./mvnw spring-boot:run` in separate terminal
 
-## Important Notes
+### Important Notes
 - Remote DB already contains data—don't re-initialize
 - Tunnel forwards local 5433 → remote localhost:5432
 - Keep SSH tunnel terminal open and in foreground
@@ -60,4 +60,24 @@ ssh -N -L 8100:localhost:6379 <user>@<host ip>
 ```bat
 mvn spring-boot:run
 ```
+
+## Testing
+
+To run all tests, execute the command: 
+
+```bash
+mvn clean verify
+```
+
+All test reports are generated in `target/surefire-reports/`.
+
+
+
+**Command to generate and view code coverage reports with JaCoCo:**
+
+```bash
+mvn clean verify -Pcoverage; start target/site/jacoco/index.html
+```
+
+The report shows line, branch, and method coverage with color-coded results (green = covered, yellow = partial, red = uncovered).
 
