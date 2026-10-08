@@ -75,13 +75,13 @@ public class HoldingService {
             throw new ApiException(ErrorCode.QUANTITY_REQUIRED);
         }
         if(holding.getQuantity().compareTo(BigDecimal.ZERO) <= 0) {
-            throw new RuntimeException("Quantity must be greater than zero");
+            throw new ApiException(ErrorCode.INVALID_QUANTITY, "Quantity must be greater than zero");
         }
         if(holding.getAveragePrice() == null) {
             throw new ApiException(ErrorCode.AVERAGE_PRICE_REQUIRED);
         }
         if(holding.getAveragePrice().compareTo(BigDecimal.ZERO) <= 0) {
-            throw new RuntimeException("Average Price must be greater than zero");
+            throw new ApiException(ErrorCode.INVALID_PRICE, "Average Price must be greater than zero");
         }
 
         // Insert the holding
