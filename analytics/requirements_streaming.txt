@@ -1,0 +1,17 @@
+"""
+Requirements for live price streaming service
+Optimized for high-frequency ticker updates
+Versions matched with main requirements.txt for consistency
+"""
+
+# Core dependencies
+redis==7.0.1
+python-dotenv==1.2.3
+yfinance==1.2.0
+pandas==3.0.3
+
+# Data processing
+numpy==1.26.2
+
+# Optional: performance monitoring
+psutil==5.9.6
