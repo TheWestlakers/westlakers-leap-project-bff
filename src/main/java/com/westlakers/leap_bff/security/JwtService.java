@@ -16,13 +16,13 @@ public class JwtService {
     @Value("${jwt.shared-secret}")
     private String sharedSecret;
 
-    public String generateToken(String username) {
+    public String generateToken(String email) {
 
         SecretKey key = Keys.hmacShaKeyFor(
             sharedSecret.getBytes(StandardCharsets.UTF_8));
         
         return Jwts.builder()
-            .subject(username)
+            .subject(email)
             .issuedAt(new Date())
             .expiration(new Date(System.currentTimeMillis() + 3600000)) // 1 hour expiration
             .signWith(key)
@@ -43,7 +43,7 @@ public class JwtService {
         }
     }
 
-    public String getUsernameFromToken(String token) {
+    public String getEmailFromToken(String token) {
         SecretKey key = Keys.hmacShaKeyFor(
             sharedSecret.getBytes(StandardCharsets.UTF_8));
         Claims claims = Jwts.parser()
