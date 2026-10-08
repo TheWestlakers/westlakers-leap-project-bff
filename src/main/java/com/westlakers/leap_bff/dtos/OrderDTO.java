@@ -47,6 +47,9 @@ public class OrderDTO {
     @DecimalMin(value = "0.0", inclusive = false, message = "Limit price must be greater than 0")
     private BigDecimal limitPrice;
     
+    @DecimalMin(value = "0.0", inclusive = false, message = "Execution price must be greater than 0")
+    private BigDecimal executionPrice;
+    
     @NotNull(message = "Quantity cannot be null")
     @DecimalMin(value = "0.0", inclusive = false, message = "Quantity must be greater than 0")
     private BigDecimal quantity;
@@ -73,6 +76,7 @@ public class OrderDTO {
                 .side(order.getSide())
                 .orderType(order.getOrderType())
                 .limitPrice(order.getLimitPrice())
+                .executionPrice(order.getExecutionPrice())
                 .quantity(order.getQuantity())
                 .placedAt(order.getPlacedAt())
                 .executedAt(order.getExecutedAt())

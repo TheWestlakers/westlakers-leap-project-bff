@@ -37,6 +37,9 @@ public class Order {
     @DecimalMin(value = "0.0", inclusive = false, message = "Limit price must be greater than 0")
     private BigDecimal limitPrice;
     
+    @DecimalMin(value = "0.0", inclusive = false, message = "Execution price must be greater than 0")
+    private BigDecimal executionPrice;
+    
     @NotNull(message = "Quantity cannot be null")
     @DecimalMin(value = "0.0", inclusive = false, message = "Quantity must be greater than 0")
     private BigDecimal quantity;
