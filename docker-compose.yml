@@ -38,6 +38,38 @@ services:
       timeout: 5s
       retries: 5
 
+  price-streamer:
+    build:
+      context: .
+      dockerfile: Dockerfile.python
+    container_name: price_streamer_service
+    depends_on:
+      redis:
+        condition: service_healthy
+    environment:
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_DB: 0
+      BATCH_SIZE: 50
+      BATCHES_PER_CYCLE: 3
+      BATCH_INTERVAL: 1.0
+      CACHE_TTL: 3600
+      TICKERS: ${TICKERS:-AAPL,MSFT,GOOGL,AMZN,TSLA,NFLX,NVDA,TSLA,AMD,INTC}
+      LOG_LEVEL: INFO
+      PYTHONUNBUFFERED: 1
+    volumes:
+      - ./analytics:/app/analytics
+      - ./logs:/app/logs
+      - ./.env:/app/.env:ro
+    restart: on-failure
+    networks:
+      - default
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
 volumes:
     postgres_data:
     redis_data:
