@@ -209,6 +209,9 @@ public class OrderService {
             throw new ApiException(ErrorCode.ACCOUNT_NOT_FOUND, "Account not found with id: " + request.getAccountId());
         }
         
+        // Validate account status is active and allows trading
+        validateAccountStatus(account);
+        
         // Fetch and validate instrument exists
         Instrument instrument = instrumentMapper.findById(request.getInstrumentId());
         if (instrument == null) {
@@ -244,20 +247,6 @@ public class OrderService {
         return buildTradeExecutionResponse(order, "MARKET order created successfully. Awaiting execution.");
     }
 
-    /**
-     * Create a limit order.
-     * 
-     * Limit orders wait for execution until market price reaches the specified limit price with these characteristics:
-     * - Execute only when market price reaches or passes limit price
-     * - BUY orders: wait for price to drop to limit price or lower
-     * - SELL orders: wait for price to rise to limit price or higher
-     * - Status set to PENDING (waiting for price conditions)
-     * - Provides price protection against unfavorable fills
-     * 
-     * @param request LimitOrderRequest containing account, instrument, side, quantity, and limit price
-     * @return TradeExecutionResponse with order details
-     * @throws ApiException if validation fails or order creation fails
-     */
     @Transactional
     public TradeExecutionResponse createLimitTrade(LimitOrderRequest request) {
         // Validation
@@ -268,6 +257,9 @@ public class OrderService {
         if (account == null) {
             throw new ApiException(ErrorCode.ACCOUNT_NOT_FOUND, "Account not found with id: " + request.getAccountId());
         }
+        
+        // Validate account status is active and allows trading
+        validateAccountStatus(account);
         
         // Fetch and validate instrument exists
         Instrument instrument = instrumentMapper.findById(request.getInstrumentId());
@@ -357,7 +349,7 @@ public class OrderService {
     private void validateAccountBalance(Account account, String side, BigDecimal quantity, BigDecimal pricePerUnit) {
         // Validate account is active
         if (account == null) {
-            throw new RuntimeException("Account validation failed: account is null");
+            throw new ApiException(ErrorCode.ACCOUNT_NOT_FOUND, "Account validation failed: account is null");
         }
         
         String sideUpper = side.toUpperCase();
@@ -365,14 +357,14 @@ public class OrderService {
         if ("BUY".equals(sideUpper)) {
             // For BUY orders: Check if account has sufficient settled cash
             if (account.getSettledCash() == null || account.getSettledCash().compareTo(BigDecimal.ZERO) <= 0) {
-                throw new RuntimeException("Account does not have sufficient settled cash to execute BUY order");
+                throw new ApiException(ErrorCode.INVALID_INPUT, "Account does not have sufficient settled cash to execute BUY order");
             }
             
             // Calculate and validate exact amount needed based on price per unit
             if (pricePerUnit != null) {
                 BigDecimal totalCost = quantity.multiply(pricePerUnit);
                 if (account.getSettledCash().compareTo(totalCost) < 0) {
-                    throw new RuntimeException(
+                    throw new ApiException(ErrorCode.INVALID_INPUT,
                         "Insufficient funds. Account has " + account.getSettledCash() + 
                         " but needs " + totalCost + " for this trade"
                     );
@@ -382,23 +374,37 @@ public class OrderService {
         } else if ("SELL".equals(sideUpper)) {
             // For SELL orders: Validate the quantity is positive (actual holdings validated separately)
             if (quantity == null || quantity.compareTo(BigDecimal.ZERO) <= 0) {
-                throw new RuntimeException("Quantity must be greater than 0");
+                throw new ApiException(ErrorCode.INVALID_QUANTITY, "Quantity must be greater than 0");
             }
         }
     }
 
     private void validateLimitPriceForSide(String side, BigDecimal limitPrice) {
         if (limitPrice == null || limitPrice.compareTo(BigDecimal.ZERO) <= 0) {
-            throw new RuntimeException("Limit price must be greater than 0");
+            throw new ApiException(ErrorCode.INVALID_PRICE, "Limit price must be greater than 0");
+        }
+    }
+
+    private void validateAccountStatus(Account account) {
+        if (account.getAccountStatusId() == null) {
+            throw new ApiException(ErrorCode.INVALID_INPUT, "Account status not found for account id: " + account.getAccountId());
         }
         
-        // Ensure limit price is provided for limit orders
-        String sideUpper = side.toUpperCase();
-        if ("BUY".equals(sideUpper) || "SELL".equals(sideUpper)) {
-            // BUY orders: Limit price represents max price willing to pay
-            // SELL orders: Limit price represents min price willing to accept
-            // Both are valid regardless of current market price
-            // (Additional market price validation could be added if current price is available)
+        Long openStatusId = 1L;
+        Long closedStatusId = 2L;
+        Long frozenStatusId = 3L;
+        
+        if (!account.getAccountStatusId().equals(openStatusId)) {
+            String statusMessage = "Account status does not allow trading";
+            
+            // Provide more specific error message based on status
+            if (account.getAccountStatusId().equals(closedStatusId)) {
+                statusMessage = "Account is CLOSED and cannot execute trades";
+            } else if (account.getAccountStatusId().equals(frozenStatusId)) {
+                statusMessage = "Account is FROZEN and cannot execute trades";
+            }
+            
+            throw new ApiException(ErrorCode.INVALID_INPUT, statusMessage);
         }
     }
 
@@ -406,13 +412,13 @@ public class OrderService {
         Holding holding = holdingMapper.findByAccountAndInstrument(account.getAccountId(), instrumentId);
         
         if (holding == null) {
-            throw new RuntimeException(
+            throw new ApiException(ErrorCode.INVALID_INPUT,
                 "Account does not hold the specified instrument (Instrument ID: " + instrumentId + ")"
             );
         }
         
         if (holding.getQuantity() == null || holding.getQuantity().compareTo(quantity) < 0) {
-            throw new RuntimeException(
+            throw new ApiException(ErrorCode.INVALID_INPUT,
                 "Insufficient holdings. Account has " + (holding.getQuantity() != null ? holding.getQuantity() : "0") + 
                 " shares but trying to sell " + quantity
             );
@@ -444,14 +450,21 @@ public class OrderService {
         // Fetch the order
         Order order = this.orderMapper.findById(orderId);
         if (order == null) {
-            throw new RuntimeException("Order not found with id: " + orderId);
+            throw new ApiException(ErrorCode.ORDER_NOT_FOUND, "Order not found with id: " + orderId);
         }
+        
+        // Validate account status is still active before execution
+        Account account = accountMapper.findById(order.getAccountId());
+        if (account == null) {
+            throw new ApiException(ErrorCode.ACCOUNT_NOT_FOUND, "Account not found with id: " + order.getAccountId());
+        }
+        validateAccountStatus(account);
         
         // Validate order is in PENDING state (1L) before execution
         if (order.getStatus() != 1L) {
             String statusName = order.getStatus() == 2L ? "EXECUTED" : 
                                order.getStatus() == 3L ? "CANCELLED" : "UNKNOWN";
-            throw new RuntimeException(
+            throw new ApiException(ErrorCode.OPERATION_FAILED,
                 "Cannot execute order with id: " + orderId + ". Order status is " + statusName + 
                 ". Only PENDING orders can be executed."
             );
@@ -459,19 +472,37 @@ public class OrderService {
         
         // Validate execution price
         if (executionPrice == null || executionPrice.compareTo(BigDecimal.ZERO) <= 0) {
-            throw new RuntimeException("Execution price must be greater than 0");
+            throw new ApiException(ErrorCode.INVALID_PRICE, "Execution price must be greater than 0");
+        }
+        
+        // For LIMIT orders, validate execution price satisfies the limit conditions
+        if ("LIMIT".equalsIgnoreCase(order.getOrderType())) {
+            if (order.getLimitPrice() != null) {
+                if ("BUY".equalsIgnoreCase(order.getSide())) {
+                    // BUY limit orders execute only at or below the limit price
+                    if (executionPrice.compareTo(order.getLimitPrice()) > 0) {
+                        throw new ApiException(ErrorCode.INVALID_INPUT,
+                            "Execution price $" + executionPrice + 
+                            " exceeds BUY limit price $" + order.getLimitPrice()
+                        );
+                    }
+                } else if ("SELL".equalsIgnoreCase(order.getSide())) {
+                    // SELL limit orders execute only at or above the limit price
+                    if (executionPrice.compareTo(order.getLimitPrice()) < 0) {
+                        throw new ApiException(ErrorCode.INVALID_INPUT,
+                            "Execution price $" + executionPrice + 
+                            " is below SELL limit price $" + order.getLimitPrice()
+                        );
+                    }
+                }
+            }
         }
         
         // For BUY orders, validate account still has sufficient funds at execution time
         if ("BUY".equalsIgnoreCase(order.getSide())) {
-            Account account = accountMapper.findById(order.getAccountId());
-            if (account == null) {
-                throw new RuntimeException("Account not found with id: " + order.getAccountId());
-            }
-            
             BigDecimal totalCost = order.getQuantity().multiply(executionPrice);
             if (account.getSettledCash() == null || account.getSettledCash().compareTo(totalCost) < 0) {
-                throw new RuntimeException(
+                throw new ApiException(ErrorCode.INVALID_INPUT,
                     "Insufficient funds at execution. Account has " + account.getSettledCash() + 
                     " but execution requires " + totalCost
                 );
@@ -480,7 +511,7 @@ public class OrderService {
         
         // For SELL orders, validate account still holds the required shares at execution time
         if ("SELL".equalsIgnoreCase(order.getSide())) {
-            validateSellHoldings(accountMapper.findById(order.getAccountId()), order.getInstrumentId(), order.getQuantity());
+            validateSellHoldings(account, order.getInstrumentId(), order.getQuantity());
         }
         
         // Update order to EXECUTED status
@@ -489,7 +520,7 @@ public class OrderService {
         
         int result = this.orderMapper.update(order);
         if (result == 0) {
-            throw new RuntimeException("Failed to execute order with id: " + orderId);
+            throw new ApiException(ErrorCode.OPERATION_FAILED, "Failed to execute order with id: " + orderId);
         }
         
         // Update holdings through upsert operation
@@ -503,7 +534,6 @@ public class OrderService {
         
         // Update account settled cash
         BigDecimal totalValue = order.getQuantity().multiply(executionPrice);
-        Account account = accountMapper.findById(order.getAccountId());
         if (account != null) {
             if ("BUY".equalsIgnoreCase(order.getSide())) {
                 // Decrease settled cash
@@ -536,12 +566,12 @@ public class OrderService {
         // Fetch the order
         Order order = this.orderMapper.findById(orderId);
         if (order == null) {
-            throw new RuntimeException("Order not found with id: " + orderId);
+            throw new ApiException(ErrorCode.ORDER_NOT_FOUND, "Order not found with id: " + orderId);
         }
         
         // Only PENDING orders can be cancelled
         if (order.getStatus() != 1L) {
-            throw new RuntimeException("Only PENDING orders can be cancelled. Order status: " + order.getStatus());
+            throw new ApiException(ErrorCode.OPERATION_FAILED, "Only PENDING orders can be cancelled. Order status: " + order.getStatus());
         }
         
         // Update order to CANCELLED status
@@ -550,7 +580,7 @@ public class OrderService {
         
         int result = this.orderMapper.update(order);
         if (result == 0) {
-            throw new RuntimeException("Failed to cancel order with id: " + orderId);
+            throw new ApiException(ErrorCode.OPERATION_FAILED, "Failed to cancel order with id: " + orderId);
         }
         
         // Build and return response
