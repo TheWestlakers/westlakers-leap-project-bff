@@ -5,6 +5,7 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 
 import java.math.BigDecimal;
 
@@ -20,6 +21,7 @@ import java.math.BigDecimal;
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
+@JsonIgnoreProperties(ignoreUnknown = true)
 public class PriceDTO {
     
     // Ticker identifier (used by streaming service)
@@ -84,4 +86,10 @@ public class PriceDTO {
     
     @JsonProperty("lastUpdate")
     private String lastUpdate;
+    
+    @JsonProperty("exchange")
+    private String exchange;
+    
+    @JsonProperty("currency")
+    private String currency;
 }

@@ -26,5 +26,5 @@ WORKDIR /app/analytics
 ENV PYTHONUNBUFFERED=1
 ENV LOG_LEVEL=INFO
 
-# Run the optimized price streaming service
-CMD ["python", "-u", "live_price_streaming_optimized.py"]
+# Run the live price streaming service
+CMD ["python", "-u", "live_price_streaming.py"]

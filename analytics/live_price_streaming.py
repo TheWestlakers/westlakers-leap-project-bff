@@ -25,6 +25,8 @@ from typing import List, Dict, Any, Optional
 from pathlib import Path
 import signal
 import sys
+import threading
+from queue import Queue
 
 # Configure logging
 logging.basicConfig(
@@ -47,7 +49,8 @@ class LivePriceStreamer:
         redis_port: int = 6379,
         redis_db: int = 0,
         tickers: Optional[List[str]] = None,
-        polling_interval: float = 3.0
+        polling_interval: float = 3.0,
+        stagger_interval: float = 1.0
     ):
         """
         Initialize the live price streamer
@@ -57,21 +60,29 @@ class LivePriceStreamer:
             redis_port: Redis server port
             redis_db: Redis database number
             tickers: List of stock tickers to stream (default: ['AAPL', 'MSFT', 'GOOGL'])
-            polling_interval: Seconds between price polls (default: 1.0)
+            polling_interval: Seconds per cycle (default: 3.0)
+            stagger_interval: Seconds between sequential fetch starts (default: 1.0)
         """
         self.redis_host = redis_host
         self.redis_port = redis_port
         self.redis_db = redis_db
         self.polling_interval = polling_interval
+        self.stagger_interval = stagger_interval
         self.tickers = tickers or ['AAPL', 'MSFT', 'GOOGL', 'AMZN', 'TSLA']
         self.redis_client: Optional[redis.Redis] = None
         self.running = False
+        
+        # Staggered fetching setup
+        self.ticker_slots: Dict[float, List[str]] = {}  # time_offset -> [tickers]
+        self._assign_tickers_to_slots()
         
         # Configure yfinance
         yf.config.network.retries = 3
         yf.config.debug.hide_exceptions = False
         
         logger.info(f"Initialized LivePriceStreamer with tickers: {self.tickers}")
+        logger.info(f"Polling interval: {self.polling_interval}s, Stagger interval: {self.stagger_interval}s")
+        logger.info(f"Ticker slot distribution: {self.ticker_slots}")
     
     def connect(self) -> bool:
         """
@@ -101,6 +112,45 @@ class LivePriceStreamer:
         if self.redis_client:
             self.redis_client.close()
             logger.info("Disconnected from Redis")
+    
+    def _assign_tickers_to_slots(self):
+        """
+        Assign tickers to time slots within the polling cycle.
+        
+        For a 3-second cycle with 1-second stagger intervals:
+        - Slot 0.0s: tickers[0], tickers[3], tickers[6], ...
+        - Slot 1.0s: tickers[1], tickers[4], tickers[7], ...
+        - Slot 2.0s: tickers[2], tickers[5], tickers[8], ...
+        
+        This ensures all tickers are fetched once per cycle with overlapping calls.
+        """
+        num_slots = int(self.polling_interval / self.stagger_interval)
+        
+        for i, ticker in enumerate(self.tickers):
+            slot_offset = (i % num_slots) * self.stagger_interval
+            if slot_offset not in self.ticker_slots:
+                self.ticker_slots[slot_offset] = []
+            self.ticker_slots[slot_offset].append(ticker)
+        
+        logger.info(f"Assigned {len(self.tickers)} tickers to {num_slots} time slots")
+    
+    def _fetch_ticker_group(
+        self,
+        tickers: List[str],
+        results: Dict[str, Optional[Dict[str, Any]]]
+    ):
+        """
+        Fetch prices for a group of tickers and store in results dict.
+        This is designed to run in a separate thread.
+        
+        Args:
+            tickers: List of tickers to fetch
+            results: Shared dictionary to store results
+        """
+        for ticker in tickers:
+            price_data = self.fetch_current_price(ticker)
+            if price_data:
+                results[ticker] = price_data
     
     def fetch_current_price(self, ticker: str) -> Optional[Dict[str, Any]]:
         """
@@ -196,20 +246,44 @@ class LivePriceStreamer:
     
     def poll_once(self):
         """
-        Poll all tickers once and publish to Redis
+        Poll all tickers with staggered starts within the cycle.
+        Tickers are fetched at different time offsets to allow overlapping API calls.
         
         Returns:
             int: Number of successfully fetched prices
         """
-        successful = 0
+        cycle_start = time.time()
+        results: Dict[str, Optional[Dict[str, Any]]] = {}
+        threads: List[threading.Thread] = []
         
-        for ticker in self.tickers:
-            price_data = self.fetch_current_price(ticker)
+        # Launch fetch threads at staggered intervals
+        for slot_offset in sorted(self.ticker_slots.keys()):
+            tickers_for_slot = self.ticker_slots[slot_offset]
+            
+            # Calculate when this slot should start
+            slot_start_time = cycle_start + slot_offset
+            delay = max(0, slot_start_time - time.time())
+            
+            # Create thread to fetch this slot's tickers
+            thread = threading.Thread(
+                target=self._delayed_fetch,
+                args=(delay, tickers_for_slot, results),
+                daemon=True
+            )
+            threads.append(thread)
+            thread.start()
+        
+        # Wait for all fetch threads to complete
+        for thread in threads:
+            thread.join()
+        
+        # Publish all fetched prices to Redis
+        successful = 0
+        for ticker, price_data in results.items():
             if price_data:
                 self.publish_to_redis(price_data)
                 successful += 1
                 
-                # Log the update
                 change = price_data.get('change', 'N/A')
                 change_pct = price_data.get('changePct', 'N/A')
                 current_price = price_data.get('currentPrice', 'N/A')
@@ -220,16 +294,46 @@ class LivePriceStreamer:
         
         return successful
     
+    def _delayed_fetch(
+        self,
+        delay: float,
+        tickers: List[str],
+        results: Dict[str, Optional[Dict[str, Any]]]
+    ):
+        """
+        Fetch tickers after a delay.
+        
+        Args:
+            delay: Seconds to wait before fetching
+            tickers: List of tickers to fetch
+            results: Shared dictionary to store results
+        """
+        if delay > 0:
+            time.sleep(delay)
+        
+        self._fetch_ticker_group(tickers, results)
+    
     def run(self):
         """
-        Start the continuous polling loop (1 per second)
+        Start the continuous polling loop with staggered fetch intervals.
+        
+        Each cycle:
+        - Starts at time 0
+        - Fetches start at 0s, 1s, 2s (staggered by stagger_interval)
+        - All fetches complete within the cycle duration
+        - Next cycle starts after polling_interval seconds
         """
         if not self.connect():
             logger.error("Failed to connect to Redis. Exiting.")
             return
         
         self.running = True
-        logger.info(f"Starting live price streaming at {self.polling_interval}s intervals")
+        logger.info(
+            f"Starting live price streaming with staggered fetches\n"
+            f"  Cycle interval: {self.polling_interval}s\n"
+            f"  Stagger interval: {self.stagger_interval}s\n"
+            f"  Max concurrent API calls: {len(self.ticker_slots)}"
+        )
         
         # Handle graceful shutdown
         def signal_handler(sig, frame):
@@ -243,20 +347,21 @@ class LivePriceStreamer:
             iteration = 0
             while self.running:
                 iteration += 1
-                start_time = time.time()
+                cycle_start = time.time()
                 
-                logger.info(f"--- Poll #{iteration} ---")
+                logger.info(f"--- Cycle #{iteration} [Time: {datetime.now().strftime('%H:%M:%S')}] ---")
                 successful = self.poll_once()
                 logger.info(f"Successfully fetched {successful}/{len(self.tickers)} prices")
                 
-                # Calculate sleep time to maintain 1-second interval
-                elapsed = time.time() - start_time
-                sleep_time = max(0, self.polling_interval - elapsed)
+                # Calculate time until next cycle
+                cycle_elapsed = time.time() - cycle_start
+                sleep_time = max(0, self.polling_interval - cycle_elapsed)
                 
                 if sleep_time > 0:
+                    logger.debug(f"Cycle took {cycle_elapsed:.2f}s, sleeping {sleep_time:.2f}s until next cycle")
                     time.sleep(sleep_time)
                 else:
-                    logger.warning(f"Poll took {elapsed:.2f}s (longer than interval)")
+                    logger.warning(f"Cycle took {cycle_elapsed:.2f}s (exceeded {self.polling_interval}s interval by {cycle_elapsed - self.polling_interval:.2f}s)")
         
         except Exception as e:
             logger.error(f"Error in polling loop: {e}")
@@ -281,16 +386,19 @@ def main():
     redis_port = int(os.getenv('REDIS_PORT', 6379))
     redis_db = int(os.getenv('REDIS_DB', 0))
     polling_interval = float(os.getenv('POLLING_INTERVAL', 3.0))
+    stagger_interval = float(os.getenv('STAGGER_INTERVAL', 1.0))
     
     # Custom tickers can be passed as comma-separated string
-    tickers_str = os.getenv('TICKERS', 'AAPL,MSFT,GOOGL,AMZN,TSLA')
+    tickers_str = os.getenv('TICKERS','AAPL,MSFT,GOOGL,AMZN,TSLA,MU')
     tickers = [t.strip() for t in tickers_str.split(',')]
     
     logger.info("=" * 70)
     logger.info("LIVE PRICE STREAMING SERVICE")
     logger.info("=" * 70)
     logger.info(f"Redis: {redis_host}:{redis_port}/{redis_db}")
-    logger.info(f"Polling Interval: {polling_interval}s")
+    logger.info(f"Polling Cycle Interval: {polling_interval}s")
+    logger.info(f"Stagger Interval Between Fetches: {stagger_interval}s")
+    logger.info(f"Number of Tickers: {len(tickers)}")
     logger.info(f"Tickers: {tickers}")
     logger.info("=" * 70)
     
@@ -300,7 +408,8 @@ def main():
         redis_port=redis_port,
         redis_db=redis_db,
         tickers=tickers,
-        polling_interval=polling_interval
+        polling_interval=polling_interval,
+        stagger_interval=stagger_interval
     )
     
     streamer.run()
