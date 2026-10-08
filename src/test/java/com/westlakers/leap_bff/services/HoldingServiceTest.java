@@ -255,11 +255,6 @@ class HoldingServiceTest {
         verify(holdingMapper, never()).delete(any());
     }
 
-    /*
-     * ==================== NEW TESTS FOR upsertHoldingOnTrade() ====================
-     */
-
-    /*
     @Test
     void testUpsertHoldingOnTrade_CreateNewHoldingOnBuy_Success() {
         // Arrange
@@ -617,5 +612,5 @@ class HoldingServiceTest {
         );
         verify(holdingMapper, times(1)).deleteByAccountAndInstrument(accountId, instrumentId);
     }
-    */
+    
 }
