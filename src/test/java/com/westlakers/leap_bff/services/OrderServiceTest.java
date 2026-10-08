@@ -326,10 +326,6 @@ class OrderServiceTest {
         verify(orderMapper, never()).delete(any());
     }
 
-    // /*
-    //  * ==================== NEW TESTS FOR createMarketTrade() ====================
-    //  */
-
     
     @Test
     void testCreateMarketTrade_ValidBuyOrder_Success() {
@@ -380,288 +376,277 @@ class OrderServiceTest {
         verify(orderMapper, never()).insert(any());
     }
 
-    // @Test
-    // void testCreateMarketTrade_InstrumentNotFound_ThrowsException() {
-    //     // Arrange
-    //     when(accountMapper.findById(1L)).thenReturn(testAccount);
-    //     when(instrumentMapper.findById(1L)).thenReturn(null);
+    @Test
+    void testCreateMarketTrade_InstrumentNotFound_ThrowsException() {
+        // Arrange
+        when(accountMapper.findById(1L)).thenReturn(testAccount);
+        when(instrumentMapper.findById(1L)).thenReturn(null);
 
-    //     // Act & Assert
-    //     assertThrows(ApiException.class, () -> orderService.createMarketTrade(testMarketOrderRequest));
-    //     verify(orderMapper, never()).insert(any());
-    // }
+        // Act & Assert
+        assertThrows(ApiException.class, () -> orderService.createMarketTrade(testMarketOrderRequest));
+        verify(orderMapper, never()).insert(any());
+    }
 
-    // @Test
-    // void testCreateMarketTrade_InsufficientFunds_ThrowsException() {
-    //     // Arrange
-    //     testAccount.setSettledCash(new BigDecimal("1000.00")); // Less than required
-    //     when(accountMapper.findById(1L)).thenReturn(testAccount);
-    //     when(instrumentMapper.findById(1L)).thenReturn(testInstrument);
+    @Test
+    void testCreateMarketTrade_InsufficientFunds_ThrowsException() {
+        // Arrange
+        testAccount.setSettledCash(new BigDecimal("1000.00")); // Less than required
+        when(accountMapper.findById(1L)).thenReturn(testAccount);
+        when(instrumentMapper.findById(1L)).thenReturn(testInstrument);
 
-    //     // Act & Assert
-    //     assertThrows(ApiException.class, () -> orderService.createMarketTrade(testMarketOrderRequest));
-    //     verify(orderMapper, never()).insert(any());
-    // }
+        // Act & Assert
+        assertThrows(ApiException.class, () -> orderService.createMarketTrade(testMarketOrderRequest));
+        verify(orderMapper, never()).insert(any());
+    }
 
-    // @Test
-    // void testCreateMarketTrade_SellWithoutHoldings_ThrowsException() {
-    //     // Arrange
-    //     testMarketOrderRequest.setSide("SELL");
-    //     when(accountMapper.findById(1L)).thenReturn(testAccount);
-    //     when(instrumentMapper.findById(1L)).thenReturn(testInstrument);
-    //     when(holdingMapper.findByAccountAndInstrument(1L, 1L)).thenReturn(null);
+    @Test
+    void testCreateMarketTrade_SellWithoutHoldings_ThrowsException() {
+        // Arrange
+        testMarketOrderRequest.setSide("SELL");
+        when(accountMapper.findById(1L)).thenReturn(testAccount);
+        when(instrumentMapper.findById(1L)).thenReturn(testInstrument);
+        when(holdingMapper.findByAccountAndInstrument(1L, 1L)).thenReturn(null);
 
-    //     // Act & Assert
-    //     assertThrows(ApiException.class, () -> orderService.createMarketTrade(testMarketOrderRequest));
-    //     verify(orderMapper, never()).insert(any());
-    // }
+        // Act & Assert
+        assertThrows(ApiException.class, () -> orderService.createMarketTrade(testMarketOrderRequest));
+        verify(orderMapper, never()).insert(any());
+    }
 
-    // /*
-    //  * ==================== NEW TESTS FOR createLimitTrade() ====================
-    //  */
 
-    // @Test
-    // void testCreateLimitTrade_ValidBuyOrder_Success() {
-    //     // Arrange
-    //     when(accountMapper.findById(1L)).thenReturn(testAccount);
-    //     when(instrumentMapper.findById(1L)).thenReturn(testInstrument);
-    //     when(orderMapper.insert(any())).thenReturn(1);
-    //     when(orderStatusMapper.findById(1L)).thenReturn(testStatus);
+    @Test
+    void testCreateLimitTrade_ValidBuyOrder_Success() {
+        // Arrange
+        when(accountMapper.findById(1L)).thenReturn(testAccount);
+        when(instrumentMapper.findById(1L)).thenReturn(testInstrument);
+        when(orderMapper.insert(any())).thenReturn(1);
+        when(orderStatusMapper.findById(1L)).thenReturn(testStatus);
 
-    //     // Act
-    //     TradeExecutionResponse result = orderService.createLimitTrade(testLimitOrderRequest);
+        // Act
+        TradeExecutionResponse result = orderService.createLimitTrade(testLimitOrderRequest);
 
-    //     // Assert
-    //     assertNotNull(result);
-    //     assertEquals(1L, result.getAccountId());
-    //     assertEquals(1L, result.getInstrumentId());
-    //     assertEquals("BUY", result.getSide());
-    //     assertEquals("LIMIT", result.getOrderType());
-    //     assertEquals(new BigDecimal("140.00"), result.getLimitPrice());
-    //     verify(orderMapper, times(1)).insert(any());
-    // }
+        // Assert
+        assertNotNull(result);
+        assertEquals(1L, result.getAccountId());
+        assertEquals(1L, result.getInstrumentId());
+        assertEquals("BUY", result.getSide());
+        assertEquals("LIMIT", result.getOrderType());
+        assertEquals(new BigDecimal("140.00"), result.getLimitPrice());
+        verify(orderMapper, times(1)).insert(any());
+    }
 
-    // @Test
-    // void testCreateLimitTrade_ValidSellOrder_Success() {
-    //     // Arrange
-    //     testLimitOrderRequest.setSide("SELL");
-    //     testLimitOrderRequest.setLimitPrice(new BigDecimal("160.00"));
-    //     when(accountMapper.findById(1L)).thenReturn(testAccount);
-    //     when(instrumentMapper.findById(1L)).thenReturn(testInstrument);
-    //     when(holdingMapper.findByAccountAndInstrument(1L, 1L)).thenReturn(testHolding);
-    //     when(orderMapper.insert(any())).thenReturn(1);
-    //     when(orderStatusMapper.findById(1L)).thenReturn(testStatus);
+    @Test
+    void testCreateLimitTrade_ValidSellOrder_Success() {
+        // Arrange
+        testLimitOrderRequest.setSide("SELL");
+        testLimitOrderRequest.setLimitPrice(new BigDecimal("160.00"));
+        when(accountMapper.findById(1L)).thenReturn(testAccount);
+        when(instrumentMapper.findById(1L)).thenReturn(testInstrument);
+        when(holdingMapper.findByAccountAndInstrument(1L, 1L)).thenReturn(testHolding);
+        when(orderMapper.insert(any())).thenReturn(1);
+        when(orderStatusMapper.findById(1L)).thenReturn(testStatus);
 
-    //     // Act
-    //     TradeExecutionResponse result = orderService.createLimitTrade(testLimitOrderRequest);
+        // Act
+        TradeExecutionResponse result = orderService.createLimitTrade(testLimitOrderRequest);
 
-    //     // Assert
-    //     assertNotNull(result);
-    //     assertEquals("SELL", result.getSide());
-    //     assertEquals("LIMIT", result.getOrderType());
-    //     verify(orderMapper, times(1)).insert(any());
-    // }
+        // Assert
+        assertNotNull(result);
+        assertEquals("SELL", result.getSide());
+        assertEquals("LIMIT", result.getOrderType());
+        verify(orderMapper, times(1)).insert(any());
+    }
 
-    // @Test
-    // void testCreateLimitTrade_AccountNotFound_ThrowsException() {
-    //     // Arrange
-    //     when(accountMapper.findById(1L)).thenReturn(null);
+    @Test
+    void testCreateLimitTrade_AccountNotFound_ThrowsException() {
+        // Arrange
+        when(accountMapper.findById(1L)).thenReturn(null);
 
-    //     // Act & Assert
-    //     assertThrows(ApiException.class, () -> orderService.createLimitTrade(testLimitOrderRequest));
-    //     verify(orderMapper, never()).insert(any());
-    // }
+        // Act & Assert
+        assertThrows(ApiException.class, () -> orderService.createLimitTrade(testLimitOrderRequest));
+        verify(orderMapper, never()).insert(any());
+    }
 
-    // @Test
-    // void testCreateLimitTrade_InstrumentNotFound_ThrowsException() {
-    //     // Arrange
-    //     when(accountMapper.findById(1L)).thenReturn(testAccount);
-    //     when(instrumentMapper.findById(1L)).thenReturn(null);
+    @Test
+    void testCreateLimitTrade_InstrumentNotFound_ThrowsException() {
+        // Arrange
+        when(accountMapper.findById(1L)).thenReturn(testAccount);
+        when(instrumentMapper.findById(1L)).thenReturn(null);
 
-    //     // Act & Assert
-    //     assertThrows(ApiException.class, () -> orderService.createLimitTrade(testLimitOrderRequest));
-    //     verify(orderMapper, never()).insert(any());
-    // }
+        // Act & Assert
+        assertThrows(ApiException.class, () -> orderService.createLimitTrade(testLimitOrderRequest));
+        verify(orderMapper, never()).insert(any());
+    }
 
-    // @Test
-    // void testCreateLimitTrade_InvalidLimitPrice_ThrowsException() {
-    //     // Arrange
-    //     testLimitOrderRequest.setLimitPrice(new BigDecimal("0"));
-    //     when(accountMapper.findById(1L)).thenReturn(testAccount);
-    //     when(instrumentMapper.findById(1L)).thenReturn(testInstrument);
+    @Test
+    void testCreateLimitTrade_InvalidLimitPrice_ThrowsException() {
+        // Arrange
+        testLimitOrderRequest.setLimitPrice(new BigDecimal("0"));
+        when(accountMapper.findById(1L)).thenReturn(testAccount);
+        when(instrumentMapper.findById(1L)).thenReturn(testInstrument);
 
-    //     // Act & Assert
-    //     assertThrows(ApiException.class, () -> orderService.createLimitTrade(testLimitOrderRequest));
-    //     verify(orderMapper, never()).insert(any());
-    // }
+        // Act & Assert
+        assertThrows(ApiException.class, () -> orderService.createLimitTrade(testLimitOrderRequest));
+        verify(orderMapper, never()).insert(any());
+    }
 
-    // @Test
-    // void testCreateLimitTrade_InsufficientFunds_ThrowsException() {
-    //     // Arrange
-    //     testAccount.setSettledCash(new BigDecimal("500.00")); // Less than required for limit order
-    //     when(accountMapper.findById(1L)).thenReturn(testAccount);
-    //     when(instrumentMapper.findById(1L)).thenReturn(testInstrument);
+    @Test
+    void testCreateLimitTrade_InsufficientFunds_ThrowsException() {
+        // Arrange
+        testAccount.setSettledCash(new BigDecimal("500.00")); // Less than required for limit order
+        when(accountMapper.findById(1L)).thenReturn(testAccount);
+        when(instrumentMapper.findById(1L)).thenReturn(testInstrument);
 
-    //     // Act & Assert
-    //     assertThrows(ApiException.class, () -> orderService.createLimitTrade(testLimitOrderRequest));
-    //     verify(orderMapper, never()).insert(any());
-    // }
+        // Act & Assert
+        assertThrows(ApiException.class, () -> orderService.createLimitTrade(testLimitOrderRequest));
+        verify(orderMapper, never()).insert(any());
+    }
 
-    // /*
-    //  * ==================== NEW TESTS FOR executeTrade() ====================
-    //  */
+    @Test
+    void testExecuteTrade_BuyOrder_Success() {
+        // Arrange
+        BigDecimal executionPrice = new BigDecimal("145.00");
+        when(orderMapper.findById(1L)).thenReturn(testOrder);
+        when(accountMapper.findById(1L)).thenReturn(testAccount);
+        when(orderMapper.update(any())).thenReturn(1);
+        when(orderStatusMapper.findById(2L)).thenReturn(new OrderStatus()); // EXECUTED status
+        when(holdingService.upsertHoldingOnTrade(any(), any(), any(), any(), any())).thenReturn(new HoldingDTO());
 
-    // @Test
-    // void testExecuteTrade_BuyOrder_Success() {
-    //     // Arrange
-    //     BigDecimal executionPrice = new BigDecimal("145.00");
-    //     when(orderMapper.findById(1L)).thenReturn(testOrder);
-    //     when(accountMapper.findById(1L)).thenReturn(testAccount);
-    //     when(orderMapper.update(any())).thenReturn(1);
-    //     when(orderStatusMapper.findById(2L)).thenReturn(new OrderStatus()); // EXECUTED status
-    //     doNothing().when(holdingService).upsertHoldingOnTrade(any(), any(), any(), any(), any());
+        // Act
+        TradeExecutionResponse result = orderService.executeTrade(1L, executionPrice);
 
-    //     // Act
-    //     TradeExecutionResponse result = orderService.executeTrade(1L, executionPrice);
+        // Assert
+        assertNotNull(result);
+        assertEquals(1L, result.getOrderId());
+        assertEquals("EXECUTED", result.getStatus());
+        assertEquals(executionPrice, result.getExecutionPrice());
+        verify(orderMapper, times(1)).update(any());
+        verify(holdingService, times(1)).upsertHoldingOnTrade(1L, 1L, new BigDecimal("100"), executionPrice, "BUY");
+    }
 
-    //     // Assert
-    //     assertNotNull(result);
-    //     assertEquals(1L, result.getOrderId());
-    //     assertEquals("EXECUTED", result.getStatus());
-    //     assertEquals(executionPrice, result.getExecutionPrice());
-    //     verify(orderMapper, times(1)).update(any());
-    //     verify(holdingService, times(1)).upsertHoldingOnTrade(1L, 1L, new BigDecimal("100"), executionPrice, "BUY");
-    // }
+    @Test
+    void testExecuteTrade_SellOrder_Success() {
+        // Arrange
+        testOrder.setSide("SELL");
+        BigDecimal executionPrice = new BigDecimal("155.00");
+        when(orderMapper.findById(1L)).thenReturn(testOrder);
+        when(accountMapper.findById(1L)).thenReturn(testAccount);
+        when(holdingMapper.findByAccountAndInstrument(1L, 1L)).thenReturn(testHolding);
+        when(orderMapper.update(any())).thenReturn(1);
+        when(orderStatusMapper.findById(2L)).thenReturn(new OrderStatus()); // EXECUTED status
+        when(holdingService.upsertHoldingOnTrade(any(), any(), any(), any(), any())).thenReturn(new HoldingDTO());
 
-    // @Test
-    // void testExecuteTrade_SellOrder_Success() {
-    //     // Arrange
-    //     testOrder.setSide("SELL");
-    //     BigDecimal executionPrice = new BigDecimal("155.00");
-    //     when(orderMapper.findById(1L)).thenReturn(testOrder);
-    //     when(accountMapper.findById(1L)).thenReturn(testAccount);
-    //     when(holdingMapper.findByAccountAndInstrument(1L, 1L)).thenReturn(testHolding);
-    //     when(orderMapper.update(any())).thenReturn(1);
-    //     when(orderStatusMapper.findById(2L)).thenReturn(new OrderStatus()); // EXECUTED status
-    //     doNothing().when(holdingService).upsertHoldingOnTrade(any(), any(), any(), any(), any());
+        // Act
+        TradeExecutionResponse result = orderService.executeTrade(1L, executionPrice);
 
-    //     // Act
-    //     TradeExecutionResponse result = orderService.executeTrade(1L, executionPrice);
+        // Assert
+        assertNotNull(result);
+        assertEquals("SELL", result.getSide());
+        assertEquals("EXECUTED", result.getStatus());
+        verify(orderMapper, times(1)).update(any());
+    }
 
-    //     // Assert
-    //     assertNotNull(result);
-    //     assertEquals("SELL", result.getSide());
-    //     assertEquals("EXECUTED", result.getStatus());
-    //     verify(orderMapper, times(1)).update(any());
-    // }
+    @Test
+    void testExecuteTrade_OrderNotFound_ThrowsException() {
+        // Arrange
+        when(orderMapper.findById(999L)).thenReturn(null);
 
-    // @Test
-    // void testExecuteTrade_OrderNotFound_ThrowsException() {
-    //     // Arrange
-    //     when(orderMapper.findById(999L)).thenReturn(null);
+        // Act & Assert
+        assertThrows(ApiException.class, () -> orderService.executeTrade(999L, new BigDecimal("150.00")));
+        verify(orderMapper, never()).update(any());
+    }
 
-    //     // Act & Assert
-    //     assertThrows(ApiException.class, () -> orderService.executeTrade(999L, new BigDecimal("150.00")));
-    //     verify(orderMapper, never()).update(any());
-    // }
+    @Test
+    void testExecuteTrade_NotPendingOrder_ThrowsException() {
+        // Arrange
+        testOrder.setStatus(2L); // EXECUTED status
+        when(orderMapper.findById(1L)).thenReturn(testOrder);
 
-    // @Test
-    // void testExecuteTrade_NotPendingOrder_ThrowsException() {
-    //     // Arrange
-    //     testOrder.setStatus(2L); // EXECUTED status
-    //     when(orderMapper.findById(1L)).thenReturn(testOrder);
+        // Act & Assert
+        assertThrows(ApiException.class, () -> orderService.executeTrade(1L, new BigDecimal("150.00")));
+        verify(orderMapper, never()).update(any());
+    }
 
-    //     // Act & Assert
-    //     assertThrows(ApiException.class, () -> orderService.executeTrade(1L, new BigDecimal("150.00")));
-    //     verify(orderMapper, never()).update(any());
-    // }
+    @Test
+    void testExecuteTrade_InvalidExecutionPrice_ThrowsException() {
+        // Arrange
+        when(orderMapper.findById(1L)).thenReturn(testOrder);
 
-    // @Test
-    // void testExecuteTrade_InvalidExecutionPrice_ThrowsException() {
-    //     // Arrange
-    //     when(orderMapper.findById(1L)).thenReturn(testOrder);
+        // Act & Assert
+        assertThrows(ApiException.class, () -> orderService.executeTrade(1L, new BigDecimal("0")));
+        verify(orderMapper, never()).update(any());
+    }
 
-    //     // Act & Assert
-    //     assertThrows(ApiException.class, () -> orderService.executeTrade(1L, new BigDecimal("0")));
-    //     verify(orderMapper, never()).update(any());
-    // }
+    @Test
+    void testExecuteTrade_BuyOrderInsufficientFunds_ThrowsException() {
+        // Arrange
+        testAccount.setSettledCash(new BigDecimal("100.00")); // Insufficient for 100 shares at 150
+        when(orderMapper.findById(1L)).thenReturn(testOrder);
+        when(accountMapper.findById(1L)).thenReturn(testAccount);
 
-    // @Test
-    // void testExecuteTrade_BuyOrderInsufficientFunds_ThrowsException() {
-    //     // Arrange
-    //     testAccount.setSettledCash(new BigDecimal("100.00")); // Insufficient for 100 shares at 150
-    //     when(orderMapper.findById(1L)).thenReturn(testOrder);
-    //     when(accountMapper.findById(1L)).thenReturn(testAccount);
+        // Act & Assert
+        assertThrows(ApiException.class, () -> orderService.executeTrade(1L, new BigDecimal("150.00")));
+        verify(orderMapper, never()).update(any());
+    }
 
-    //     // Act & Assert
-    //     assertThrows(ApiException.class, () -> orderService.executeTrade(1L, new BigDecimal("150.00")));
-    //     verify(orderMapper, never()).update(any());
-    // }
+    @Test
+    void testExecuteTrade_SellOrderNoHoldings_ThrowsException() {
+        // Arrange
+        testOrder.setSide("SELL");
+        when(orderMapper.findById(1L)).thenReturn(testOrder);
+        when(accountMapper.findById(1L)).thenReturn(testAccount);
+        when(holdingMapper.findByAccountAndInstrument(1L, 1L)).thenReturn(null);
 
-    // @Test
-    // void testExecuteTrade_SellOrderNoHoldings_ThrowsException() {
-    //     // Arrange
-    //     testOrder.setSide("SELL");
-    //     when(orderMapper.findById(1L)).thenReturn(testOrder);
-    //     when(accountMapper.findById(1L)).thenReturn(testAccount);
-    //     when(holdingMapper.findByAccountAndInstrument(1L, 1L)).thenReturn(null);
+        // Act & Assert
+        assertThrows(ApiException.class, () -> orderService.executeTrade(1L, new BigDecimal("150.00")));
+        verify(orderMapper, never()).update(any());
+    }
 
-    //     // Act & Assert
-    //     assertThrows(ApiException.class, () -> orderService.executeTrade(1L, new BigDecimal("150.00")));
-    //     verify(orderMapper, never()).update(any());
-    // }
+    @Test
+    void testCancelTrade_PendingOrder_Success() {
+        // Arrange
+        testOrder.setStatus(1L); // PENDING
+        when(orderMapper.findById(1L)).thenReturn(testOrder);
+        when(orderMapper.update(any())).thenReturn(1);
+        when(orderStatusMapper.findById(3L)).thenReturn(new OrderStatus()); // CANCELLED status
 
-    // /*
-    //  * ==================== NEW TESTS FOR cancelTrade() ====================
-    //  */
+        // Act
+        TradeExecutionResponse result = orderService.cancelTrade(1L);
 
-    // @Test
-    // void testCancelTrade_PendingOrder_Success() {
-    //     // Arrange
-    //     testOrder.setStatus(1L); // PENDING
-    //     when(orderMapper.findById(1L)).thenReturn(testOrder);
-    //     when(orderMapper.update(any())).thenReturn(1);
-    //     when(orderStatusMapper.findById(3L)).thenReturn(new OrderStatus()); // CANCELLED status
+        // Assert
+        assertNotNull(result);
+        assertEquals(1L, result.getOrderId());
+        assertEquals("CANCELLED", result.getStatus());
+        verify(orderMapper, times(1)).update(any());
+    }
 
-    //     // Act
-    //     TradeExecutionResponse result = orderService.cancelTrade(1L);
+    @Test
+    void testCancelTrade_OrderNotFound_ThrowsException() {
+        // Arrange
+        when(orderMapper.findById(999L)).thenReturn(null);
 
-    //     // Assert
-    //     assertNotNull(result);
-    //     assertEquals(1L, result.getOrderId());
-    //     assertEquals("CANCELLED", result.getStatus());
-    //     verify(orderMapper, times(1)).update(any());
-    // }
+        // Act & Assert
+        assertThrows(ApiException.class, () -> orderService.cancelTrade(999L));
+        verify(orderMapper, never()).update(any());
+    }
 
-    // @Test
-    // void testCancelTrade_OrderNotFound_ThrowsException() {
-    //     // Arrange
-    //     when(orderMapper.findById(999L)).thenReturn(null);
+    @Test
+    void testCancelTrade_ExecutedOrder_ThrowsException() {
+        // Arrange
+        testOrder.setStatus(2L); // EXECUTED
+        when(orderMapper.findById(1L)).thenReturn(testOrder);
 
-    //     // Act & Assert
-    //     assertThrows(ApiException.class, () -> orderService.cancelTrade(999L));
-    //     verify(orderMapper, never()).update(any());
-    // }
+        // Act & Assert
+        assertThrows(ApiException.class, () -> orderService.cancelTrade(1L));
+        verify(orderMapper, never()).update(any());
+    }
 
-    // @Test
-    // void testCancelTrade_ExecutedOrder_ThrowsException() {
-    //     // Arrange
-    //     testOrder.setStatus(2L); // EXECUTED
-    //     when(orderMapper.findById(1L)).thenReturn(testOrder);
+    @Test
+    void testCancelTrade_AlreadyCancelledOrder_ThrowsException() {
+        // Arrange
+        testOrder.setStatus(3L); // CANCELLED
+        when(orderMapper.findById(1L)).thenReturn(testOrder);
 
-    //     // Act & Assert
-    //     assertThrows(ApiException.class, () -> orderService.cancelTrade(1L));
-    //     verify(orderMapper, never()).update(any());
-    // }
-
-    // @Test
-    // void testCancelTrade_AlreadyCancelledOrder_ThrowsException() {
-    //     // Arrange
-    //     testOrder.setStatus(3L); // CANCELLED
-    //     when(orderMapper.findById(1L)).thenReturn(testOrder);
-
-    //     // Act & Assert
-    //     assertThrows(ApiException.class, () -> orderService.cancelTrade(1L));
-    //     verify(orderMapper, never()).update(any());
-    // }
+        // Act & Assert
+        assertThrows(ApiException.class, () -> orderService.cancelTrade(1L));
+        verify(orderMapper, never()).update(any());
+    }
 }
