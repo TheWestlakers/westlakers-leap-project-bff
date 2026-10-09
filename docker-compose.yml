@@ -24,5 +24,51 @@ services:
       timeout: 5s
       retries: 5
 
+  redis:
+    image: redis:7-alpine
+    container_name: redis_server
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    command: redis-server --appendonly yes
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  price-streamer:
+    build:
+      context: .
+      dockerfile: Dockerfile.python
+    container_name: price_streamer_service
+    command: ["python", "-u", "live_price_streaming.py"]
+    depends_on:
+      redis:
+        condition: service_healthy
+    environment:
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_DB: 0
+      POLLING_INTERVAL: 3.0
+      STAGGER_INTERVAL: 1.0
+      TICKERS: ${TICKERS:-AAPL,MSFT,GOOGL,AMZN,TSLA,MU}
+      LOG_LEVEL: INFO
+      PYTHONUNBUFFERED: 1
+    volumes:
+      - ./analytics:/app/analytics
+      - ./logs:/app/logs
+      - ./.env:/app/.env:ro
+    restart: on-failure
+    networks:
+      - default
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
 volumes:
     postgres_data:
+    redis_data:
