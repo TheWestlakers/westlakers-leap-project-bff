@@ -8,6 +8,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestHeader;
+import jakarta.validation.Valid;
 import com.westlakers.leap_bff.security.JwtService;
 import com.westlakers.leap_bff.dtos.LoginRequest;
 import com.westlakers.leap_bff.dtos.LoginResponse;
@@ -21,10 +22,10 @@ public class AuthController {
     private final JwtService jwtService;
 
     @PostMapping("/login")
-    public LoginResponse login(@RequestBody LoginRequest request) {
+    public LoginResponse login(@Valid @RequestBody LoginRequest request) {
 
         String token = jwtService.generateToken(
-            request.getUsername());
+            request.getEmail());
 
         return new LoginResponse(token);
     }
