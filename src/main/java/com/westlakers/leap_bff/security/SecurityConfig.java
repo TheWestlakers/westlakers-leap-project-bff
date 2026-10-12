@@ -51,6 +51,7 @@ public class SecurityConfig {
         
         // Allow common headers
         configuration.setAllowedHeaders(Arrays.asList(
+            "*",
             "Content-Type",
             "Authorization",
             "X-Requested-With",
