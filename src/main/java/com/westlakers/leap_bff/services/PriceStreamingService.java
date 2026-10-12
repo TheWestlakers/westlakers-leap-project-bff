@@ -28,6 +28,10 @@ import java.util.concurrent.ConcurrentHashMap;
 public class PriceStreamingService {
 
     private static final String ACTIVE_TICKERS_SET = "prices:tickers:active";
+    private static final String WATCHLIST_CLIENT_KEY_PREFIX = "prices:watchlist:client:";
+    private static final String FOCUS_CLIENT_KEY_PREFIX = "prices:focus:client:";
+    private static final String WATCHLIST_SUBSCRIBERS_KEY_PREFIX = "prices:watchlist:subs:";
+    private static final String FOCUS_SUBSCRIBERS_KEY_PREFIX = "prices:focus:subs:";
     
     private final RedisTemplate<String, PriceDTO> priceRedisTemplate;
     private final RedisTemplate<String, String> stringRedisTemplate;
@@ -145,6 +149,77 @@ public class PriceStreamingService {
         return normalized;
     }
 
+    public Set<String> syncWatchlist(String clientId, Collection<String> tickers) {
+        String normalizedClientId = normalizeClientId(clientId);
+        String clientWatchlistKey = WATCHLIST_CLIENT_KEY_PREFIX + normalizedClientId;
+
+        Set<String> existing = Optional.ofNullable(stringRedisTemplate.opsForSet().members(clientWatchlistKey))
+            .orElse(Collections.emptySet());
+
+        Set<String> normalizedIncoming = new LinkedHashSet<>();
+        if (tickers != null) {
+            tickers.stream()
+                .filter(Objects::nonNull)
+                .map(this::normalizeTicker)
+                .forEach(normalizedIncoming::add);
+        }
+
+        Set<String> toAdd = new LinkedHashSet<>(normalizedIncoming);
+        toAdd.removeAll(existing);
+
+        Set<String> toRemove = new LinkedHashSet<>(existing);
+        toRemove.removeAll(normalizedIncoming);
+
+        if (!toAdd.isEmpty()) {
+            stringRedisTemplate.opsForSet().add(clientWatchlistKey, toAdd.toArray(new String[0]));
+            for (String ticker : toAdd) {
+                stringRedisTemplate.opsForSet().add(WATCHLIST_SUBSCRIBERS_KEY_PREFIX + ticker, normalizedClientId);
+                reconcileTickerRegistration(ticker);
+            }
+        }
+
+        if (!toRemove.isEmpty()) {
+            stringRedisTemplate.opsForSet().remove(clientWatchlistKey, toRemove.toArray(new String[0]));
+            for (String ticker : toRemove) {
+                stringRedisTemplate.opsForSet().remove(WATCHLIST_SUBSCRIBERS_KEY_PREFIX + ticker, normalizedClientId);
+                reconcileTickerRegistration(ticker);
+            }
+        }
+
+        log.info("Synced watchlist for client {}. Size: {}", normalizedClientId, normalizedIncoming.size());
+        return normalizedIncoming;
+    }
+
+    public String focusTicker(String clientId, String ticker) {
+        String normalizedClientId = normalizeClientId(clientId);
+        String normalizedTicker = normalizeTicker(ticker);
+
+        stringRedisTemplate.opsForSet().add(FOCUS_CLIENT_KEY_PREFIX + normalizedClientId, normalizedTicker);
+        stringRedisTemplate.opsForSet().add(FOCUS_SUBSCRIBERS_KEY_PREFIX + normalizedTicker, normalizedClientId);
+        reconcileTickerRegistration(normalizedTicker);
+
+        log.info("Client {} focused ticker {}", normalizedClientId, normalizedTicker);
+        return normalizedTicker;
+    }
+
+    public String unfocusTicker(String clientId, String ticker) {
+        String normalizedClientId = normalizeClientId(clientId);
+        String normalizedTicker = normalizeTicker(ticker);
+
+        stringRedisTemplate.opsForSet().remove(FOCUS_CLIENT_KEY_PREFIX + normalizedClientId, normalizedTicker);
+        stringRedisTemplate.opsForSet().remove(FOCUS_SUBSCRIBERS_KEY_PREFIX + normalizedTicker, normalizedClientId);
+        reconcileTickerRegistration(normalizedTicker);
+
+        log.info("Client {} unfocused ticker {}", normalizedClientId, normalizedTicker);
+        return normalizedTicker;
+    }
+
+    public Set<String> getClientWatchlist(String clientId) {
+        String normalizedClientId = normalizeClientId(clientId);
+        return Optional.ofNullable(stringRedisTemplate.opsForSet().members(WATCHLIST_CLIENT_KEY_PREFIX + normalizedClientId))
+            .orElse(Collections.emptySet());
+    }
+
     private String normalizeTicker(String ticker) {
         if (ticker == null || ticker.trim().isEmpty()) {
             throw new IllegalArgumentException("Ticker cannot be empty");
@@ -154,6 +229,30 @@ public class PriceStreamingService {
             throw new IllegalArgumentException("Invalid ticker format: " + ticker);
         }
         return normalized;
+    }
+
+    private String normalizeClientId(String clientId) {
+        if (clientId == null || clientId.trim().isEmpty()) {
+            throw new IllegalArgumentException("clientId cannot be empty");
+        }
+        String normalized = clientId.trim();
+        if (!normalized.matches("[A-Za-z0-9._:-]{8,100}")) {
+            throw new IllegalArgumentException("Invalid clientId format");
+        }
+        return normalized;
+    }
+
+    private void reconcileTickerRegistration(String ticker) {
+        String normalizedTicker = normalizeTicker(ticker);
+        Long watchlistSubs = stringRedisTemplate.opsForSet().size(WATCHLIST_SUBSCRIBERS_KEY_PREFIX + normalizedTicker);
+        Long focusSubs = stringRedisTemplate.opsForSet().size(FOCUS_SUBSCRIBERS_KEY_PREFIX + normalizedTicker);
+        long totalSubs = (watchlistSubs == null ? 0 : watchlistSubs) + (focusSubs == null ? 0 : focusSubs);
+
+        if (totalSubs > 0) {
+            stringRedisTemplate.opsForSet().add(ACTIVE_TICKERS_SET, normalizedTicker);
+        } else {
+            stringRedisTemplate.opsForSet().remove(ACTIVE_TICKERS_SET, normalizedTicker);
+        }
     }
     
     /**

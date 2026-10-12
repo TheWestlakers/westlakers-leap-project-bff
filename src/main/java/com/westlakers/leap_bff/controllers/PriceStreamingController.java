@@ -80,7 +80,12 @@ public class PriceStreamingController {
             Set<String> tickers;
 
             if (symbols != null && !symbols.isEmpty()) {
-                tickers = priceStreamingService.registerTickers(symbols);
+                tickers = symbols.stream()
+                    .filter(Objects::nonNull)
+                    .map(String::trim)
+                    .filter(symbol -> !symbol.isEmpty())
+                    .map(String::toUpperCase)
+                    .collect(Collectors.toCollection(LinkedHashSet::new));
             } else {
                 tickers = priceStreamingService.getAvailableTickers();
             }
@@ -162,6 +167,100 @@ public class PriceStreamingController {
             log.error("Error unregistering ticker: {}", e.getMessage());
             return ResponseEntity.badRequest().body(Map.of(
                 "error", "Failed to unregister ticker",
+                "message", e.getMessage()
+            ));
+        }
+    }
+
+    @PostMapping("/tickers/watchlist/sync")
+    public ResponseEntity<?> syncWatchlist(@RequestBody Map<String, Object> payload) {
+        try {
+            Object clientIdValue = payload.get("clientId");
+            if (!(clientIdValue instanceof String clientId) || clientId.trim().isEmpty()) {
+                return ResponseEntity.badRequest().body(Map.of(
+                    "error", "clientId is required"
+                ));
+            }
+
+            Object symbols = payload.get("tickers");
+            List<String> tickerList = new ArrayList<>();
+            if (symbols instanceof List<?>) {
+                tickerList = ((List<?>) symbols).stream()
+                    .filter(String.class::isInstance)
+                    .map(String.class::cast)
+                    .collect(Collectors.toList());
+            }
+
+            Set<String> synced = priceStreamingService.syncWatchlist(clientId, tickerList);
+            return ResponseEntity.ok(Map.of(
+                "count", synced.size(),
+                "tickers", new ArrayList<>(synced)
+            ));
+        } catch (Exception e) {
+            log.error("Error syncing watchlist: {}", e.getMessage());
+            return ResponseEntity.badRequest().body(Map.of(
+                "error", "Failed to sync watchlist",
+                "message", e.getMessage()
+            ));
+        }
+    }
+
+    @PostMapping("/tickers/focus")
+    public ResponseEntity<?> focusTicker(@RequestBody Map<String, String> payload) {
+        try {
+            String clientId = payload.get("clientId");
+            String ticker = payload.get("ticker");
+            if (clientId == null || clientId.trim().isEmpty() || ticker == null || ticker.trim().isEmpty()) {
+                return ResponseEntity.badRequest().body(Map.of(
+                    "error", "clientId and ticker are required"
+                ));
+            }
+
+            String focused = priceStreamingService.focusTicker(clientId, ticker);
+            return ResponseEntity.ok(Map.of("ticker", focused, "status", "focused"));
+        } catch (Exception e) {
+            log.error("Error focusing ticker: {}", e.getMessage());
+            return ResponseEntity.badRequest().body(Map.of(
+                "error", "Failed to focus ticker",
+                "message", e.getMessage()
+            ));
+        }
+    }
+
+    @PostMapping("/tickers/unfocus")
+    public ResponseEntity<?> unfocusTicker(@RequestBody Map<String, String> payload) {
+        try {
+            String clientId = payload.get("clientId");
+            String ticker = payload.get("ticker");
+            if (clientId == null || clientId.trim().isEmpty() || ticker == null || ticker.trim().isEmpty()) {
+                return ResponseEntity.badRequest().body(Map.of(
+                    "error", "clientId and ticker are required"
+                ));
+            }
+
+            String unfocused = priceStreamingService.unfocusTicker(clientId, ticker);
+            return ResponseEntity.ok(Map.of("ticker", unfocused, "status", "unfocused"));
+        } catch (Exception e) {
+            log.error("Error unfocusing ticker: {}", e.getMessage());
+            return ResponseEntity.badRequest().body(Map.of(
+                "error", "Failed to unfocus ticker",
+                "message", e.getMessage()
+            ));
+        }
+    }
+
+    @GetMapping("/tickers/watchlist")
+    public ResponseEntity<?> getClientWatchlist(@RequestParam("clientId") String clientId) {
+        try {
+            Set<String> tickers = priceStreamingService.getClientWatchlist(clientId);
+            return ResponseEntity.ok(Map.of(
+                "count", tickers.size(),
+                "tickers", new ArrayList<>(tickers)
+            ));
+        } catch (Exception e) {
+            log.error("Error fetching client watchlist: {}", e.getMessage());
+            return ResponseEntity.badRequest().body(Map.of(
+                "error", "Failed to fetch watchlist",
                 "message", e.getMessage()
             ));
         }
