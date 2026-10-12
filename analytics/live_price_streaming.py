@@ -39,6 +39,8 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
+ACTIVE_TICKERS_SET = 'prices:tickers:active'
+
 
 class LivePriceStreamer:
     """Streams live prices from yfinance to Redis in real-time"""
@@ -101,6 +103,7 @@ class LivePriceStreamer:
             )
             # Test connection
             self.redis_client.ping()
+            self.redis_client.sadd(ACTIVE_TICKERS_SET, *self.tickers)
             logger.info(f"Connected to Redis at {self.redis_host}:{self.redis_port}")
             return True
         except redis.ConnectionError as e:
@@ -124,7 +127,8 @@ class LivePriceStreamer:
         
         This ensures all tickers are fetched once per cycle with overlapping calls.
         """
-        num_slots = int(self.polling_interval / self.stagger_interval)
+        self.ticker_slots.clear()
+        num_slots = max(1, int(self.polling_interval / self.stagger_interval))
         
         for i, ticker in enumerate(self.tickers):
             slot_offset = (i % num_slots) * self.stagger_interval
@@ -133,6 +137,25 @@ class LivePriceStreamer:
             self.ticker_slots[slot_offset].append(ticker)
         
         logger.info(f"Assigned {len(self.tickers)} tickers to {num_slots} time slots")
+
+    def refresh_tickers_from_redis(self):
+        """Reload active ticker symbols from Redis, if they changed."""
+        if not self.redis_client:
+            return
+
+        try:
+            redis_tickers = self.redis_client.smembers(ACTIVE_TICKERS_SET)
+            normalized = sorted({ticker.strip().upper() for ticker in redis_tickers if ticker and ticker.strip()})
+
+            if not normalized:
+                return
+
+            if normalized != sorted(self.tickers):
+                self.tickers = normalized
+                self._assign_tickers_to_slots()
+                logger.info(f"Updated active tickers from Redis: {self.tickers}")
+        except Exception as e:
+            logger.warning(f"Failed refreshing tickers from Redis: {e}")
     
     def _fetch_ticker_group(
         self,
@@ -348,6 +371,8 @@ class LivePriceStreamer:
             while self.running:
                 iteration += 1
                 cycle_start = time.time()
+
+                self.refresh_tickers_from_redis()
                 
                 logger.info(f"--- Cycle #{iteration} [Time: {datetime.now().strftime('%H:%M:%S')}] ---")
                 successful = self.poll_once()

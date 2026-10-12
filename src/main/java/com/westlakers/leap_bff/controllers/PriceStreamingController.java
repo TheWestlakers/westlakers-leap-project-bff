@@ -8,6 +8,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.*;
+import java.util.stream.Collectors;
 
 /**
  * REST Controller for real-time price data streaming.
@@ -42,7 +43,8 @@ public class PriceStreamingController {
     @GetMapping("/latest/{ticker}")
     public ResponseEntity<?> getLatestPrice(@PathVariable String ticker) {
         try {
-            Optional<PriceDTO> price = priceStreamingService.getLatestPrice(ticker);
+            String registeredTicker = priceStreamingService.registerTicker(ticker);
+            Optional<PriceDTO> price = priceStreamingService.getLatestPrice(registeredTicker);
             
             if (price.isPresent()) {
                 return ResponseEntity.ok(price.get());
@@ -53,6 +55,11 @@ public class PriceStreamingController {
                     "timestamp", new Date().toString()
                 ));
             }
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(Map.of(
+                "error", "Invalid ticker",
+                "message", e.getMessage()
+            ));
         } catch (Exception e) {
             log.error("Error fetching latest price for {}: {}", ticker, e.getMessage());
             return ResponseEntity.status(500).body(Map.of(
@@ -68,9 +75,15 @@ public class PriceStreamingController {
      * @return Map of ticker -> PriceDTO
      */
     @GetMapping("/all")
-    public ResponseEntity<?> getAllPrices() {
+    public ResponseEntity<?> getAllPrices(@RequestParam(value = "symbols", required = false) List<String> symbols) {
         try {
-            Set<String> tickers = priceStreamingService.getAvailableTickers();
+            Set<String> tickers;
+
+            if (symbols != null && !symbols.isEmpty()) {
+                tickers = priceStreamingService.registerTickers(symbols);
+            } else {
+                tickers = priceStreamingService.getAvailableTickers();
+            }
             
             if (tickers.isEmpty()) {
                 return ResponseEntity.ok(Map.of(
@@ -93,6 +106,62 @@ public class PriceStreamingController {
             log.error("Error fetching all prices: {}", e.getMessage());
             return ResponseEntity.status(500).body(Map.of(
                 "error", "Failed to fetch prices",
+                "message", e.getMessage()
+            ));
+        }
+    }
+
+    @PostMapping("/tickers/register")
+    public ResponseEntity<?> registerTickers(@RequestBody Map<String, Object> payload) {
+        try {
+            Set<String> registered = new LinkedHashSet<>();
+
+            Object singleTicker = payload.get("ticker");
+            if (singleTicker instanceof String) {
+                String ticker = priceStreamingService.registerTicker((String) singleTicker);
+                if (ticker != null) {
+                    registered.add(ticker);
+                }
+            }
+
+            Object symbols = payload.get("tickers");
+            if (symbols instanceof List<?>) {
+                List<String> tickerList = ((List<?>) symbols).stream()
+                    .filter(String.class::isInstance)
+                    .map(String.class::cast)
+                    .collect(Collectors.toList());
+                registered.addAll(priceStreamingService.registerTickers(tickerList));
+            }
+
+            return ResponseEntity.ok(Map.of(
+                "count", registered.size(),
+                "tickers", new ArrayList<>(registered)
+            ));
+        } catch (Exception e) {
+            log.error("Error registering tickers: {}", e.getMessage());
+            return ResponseEntity.badRequest().body(Map.of(
+                "error", "Failed to register tickers",
+                "message", e.getMessage()
+            ));
+        }
+    }
+
+    @PostMapping("/tickers/unregister")
+    public ResponseEntity<?> unregisterTicker(@RequestBody Map<String, String> payload) {
+        try {
+            String ticker = payload.get("ticker");
+            if (ticker == null || ticker.trim().isEmpty()) {
+                return ResponseEntity.badRequest().body(Map.of(
+                    "error", "Ticker is required"
+                ));
+            }
+
+            String removed = priceStreamingService.unregisterTicker(ticker);
+            return ResponseEntity.ok(Map.of("ticker", removed, "status", "removed"));
+        } catch (Exception e) {
+            log.error("Error unregistering ticker: {}", e.getMessage());
+            return ResponseEntity.badRequest().body(Map.of(
+                "error", "Failed to unregister ticker",
                 "message", e.getMessage()
             ));
         }

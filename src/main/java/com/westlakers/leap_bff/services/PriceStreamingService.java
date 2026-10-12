@@ -26,6 +26,8 @@ import java.util.concurrent.ConcurrentHashMap;
 @Slf4j
 @Service
 public class PriceStreamingService {
+
+    private static final String ACTIVE_TICKERS_SET = "prices:tickers:active";
     
     private final RedisTemplate<String, PriceDTO> priceRedisTemplate;
     private final RedisTemplate<String, String> stringRedisTemplate;
@@ -76,7 +78,8 @@ public class PriceStreamingService {
     public Map<String, PriceDTO> getLatestPrices(List<String> tickers) {
         Map<String, PriceDTO> prices = new LinkedHashMap<>();
         for (String ticker : tickers) {
-            getLatestPrice(ticker).ifPresent(price -> prices.put(ticker, price));
+            String normalized = normalizeTicker(ticker);
+            getLatestPrice(normalized).ifPresent(price -> prices.put(normalized, price));
         }
         return prices;
     }
@@ -89,6 +92,14 @@ public class PriceStreamingService {
     public Set<String> getAvailableTickers() {
         Map<Object, Object> metadata = stringRedisTemplate.opsForHash().entries("prices:metadata");
         Set<String> tickers = new HashSet<>();
+
+        Set<String> activeSet = stringRedisTemplate.opsForSet().members(ACTIVE_TICKERS_SET);
+        if (activeSet != null) {
+            activeSet.stream()
+                .filter(Objects::nonNull)
+                .map(this::normalizeTicker)
+                .forEach(tickers::add);
+        }
         
         for (Object key : metadata.keySet()) {
             String keyStr = (String) key;
@@ -99,6 +110,50 @@ public class PriceStreamingService {
         }
         
         return tickers;
+    }
+
+    public Set<String> registerTickers(Collection<String> tickers) {
+        Set<String> normalizedTickers = new LinkedHashSet<>();
+
+        if (tickers != null) {
+            tickers.stream()
+                .filter(Objects::nonNull)
+                .map(this::normalizeTicker)
+                .forEach(normalizedTickers::add);
+        }
+
+        if (!normalizedTickers.isEmpty()) {
+            stringRedisTemplate.opsForSet().add(ACTIVE_TICKERS_SET, normalizedTickers.toArray(new String[0]));
+            log.info("Registered {} ticker(s): {}", normalizedTickers.size(), normalizedTickers);
+        }
+
+        return normalizedTickers;
+    }
+
+    public String registerTicker(String ticker) {
+        Set<String> tickers = registerTickers(Collections.singletonList(ticker));
+        if (tickers.isEmpty()) {
+            return null;
+        }
+        return tickers.iterator().next();
+    }
+
+    public String unregisterTicker(String ticker) {
+        String normalized = normalizeTicker(ticker);
+        stringRedisTemplate.opsForSet().remove(ACTIVE_TICKERS_SET, normalized);
+        log.info("Unregistered ticker: {}", normalized);
+        return normalized;
+    }
+
+    private String normalizeTicker(String ticker) {
+        if (ticker == null || ticker.trim().isEmpty()) {
+            throw new IllegalArgumentException("Ticker cannot be empty");
+        }
+        String normalized = ticker.trim().toUpperCase(Locale.ROOT);
+        if (!normalized.matches("[A-Z0-9._-]{1,20}")) {
+            throw new IllegalArgumentException("Invalid ticker format: " + ticker);
+        }
+        return normalized;
     }
     
     /**
