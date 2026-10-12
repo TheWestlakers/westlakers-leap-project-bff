@@ -117,6 +117,7 @@ CREATE TABLE IF NOT EXISTS orders (
                         side VARCHAR(10) NOT NULL,
                         order_type VARCHAR(20) NOT NULL,
                         limit_price NUMERIC(19,4),
+                        execution_price NUMERIC(19,4),
                         quantity DECIMAL(19,4) NOT NULL,
                         status INTEGER NOT NULL,
                         placed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -150,4 +151,16 @@ CREATE TABLE IF NOT EXISTS holdings (
                           CONSTRAINT fk_holding_instrument
                               FOREIGN KEY (instrument_id)
                                   REFERENCES instruments(instrument_id)
+);
+
+CREATE TABLE IF NOT EXISTS user_ticker_subscriptions (
+    id BIGSERIAL PRIMARY KEY,
+    user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    ticker VARCHAR(10) NOT NULL,
+    subscription_type VARCHAR(20) NOT NULL DEFAULT 'WATCHLIST', -- WATCHLIST, FOCUSED, ALERT
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(user_id, ticker, subscription_type),
+    INDEX idx_user_ticker (user_id, ticker),
+    INDEX idx_ticker (ticker)
 );

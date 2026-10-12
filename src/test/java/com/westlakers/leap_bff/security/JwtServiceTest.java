@@ -63,7 +63,7 @@ class JwtServiceTest {
         String token = jwtService.generateToken(testUsername);
 
         // Assert
-        String username = jwtService.getUsernameFromToken(token);
+        String username = jwtService.getEmailFromToken(token);
         assertEquals(testUsername, username);
     }
 
@@ -132,7 +132,7 @@ class JwtServiceTest {
     @Test
     void testGetUsernameFromToken_ValidToken() {
         // Act
-        String username = jwtService.getUsernameFromToken(validToken);
+        String username = jwtService.getEmailFromToken(validToken);
 
         // Assert
         assertEquals(testUsername, username);
@@ -144,13 +144,13 @@ class JwtServiceTest {
         String invalidToken = "invalid.token.here";
 
         // Act & Assert
-        assertThrows(JwtException.class, () -> jwtService.getUsernameFromToken(invalidToken));
+        assertThrows(JwtException.class, () -> jwtService.getEmailFromToken(invalidToken));
     }
 
     @Test
     void testGetUsernameFromToken_NullToken_ThrowsException() {
         // Act & Assert
-        assertThrows(Exception.class, () -> jwtService.getUsernameFromToken(null));
+        assertThrows(Exception.class, () -> jwtService.getEmailFromToken(null));
     }
 
     @Test
@@ -161,7 +161,7 @@ class JwtServiceTest {
         // Act
         String token = jwtService.generateToken(username);
         boolean isValid = jwtService.validateToken(token);
-        String extractedUsername = jwtService.getUsernameFromToken(token);
+        String extractedUsername = jwtService.getEmailFromToken(token);
 
         // Assert
         assertTrue(isValid);
@@ -187,7 +187,7 @@ class JwtServiceTest {
 
         // Assert
         assertNotEquals(token1, token2);
-        assertEquals("user1", jwtService.getUsernameFromToken(token1));
-        assertEquals("user2", jwtService.getUsernameFromToken(token2));
+        assertEquals("user1", jwtService.getEmailFromToken(token1));
+        assertEquals("user2", jwtService.getEmailFromToken(token2));
     }
 }
