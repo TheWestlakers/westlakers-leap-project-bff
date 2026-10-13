@@ -21,6 +21,7 @@ import asyncio
 import time
 import json
 import logging
+from logging.handlers import RotatingFileHandler
 from datetime import datetime
 from typing import List, Dict, Any, Optional, Set
 from pathlib import Path
@@ -34,7 +35,11 @@ logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
     handlers=[
-        logging.FileHandler('live_price_streaming.log'),
+        RotatingFileHandler(
+            'live_price_streaming.log',
+            maxBytes=256 * 1024,
+            backupCount=1
+        ),
         logging.StreamHandler(sys.stdout)
     ]
 )
