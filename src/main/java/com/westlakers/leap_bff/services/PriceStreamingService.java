@@ -5,8 +5,13 @@ import com.westlakers.leap_bff.dtos.PriceDTO;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.redis.connection.stream.ObjectRecord;
 import org.springframework.data.redis.connection.stream.StreamRecords;
+import org.springframework.data.redis.connection.Message;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.data.redis.core.StreamOperations;
+import org.springframework.data.redis.listener.ChannelTopic;
+import org.springframework.data.redis.listener.RedisMessageListenerContainer;
+import org.springframework.data.redis.connection.MessageListener;
+import org.springframework.data.redis.connection.RedisConnectionFactory;
 import org.springframework.stereotype.Service;
 import java.time.Duration;
 import java.time.Instant;
@@ -40,20 +45,24 @@ public class PriceStreamingService {
     private final RedisTemplate<String, PriceDTO> priceRedisTemplate;
     private final RedisTemplate<String, String> stringRedisTemplate;
     private final ObjectMapper objectMapper;
+    private final RedisMessageListenerContainer redisMessageListenerContainer;
     
     // In-memory cache of latest prices
     private final Map<String, PriceDTO> priceCache = new ConcurrentHashMap<>();
     
-    // Track price subscribers for WebSocket streaming
-    private final Set<String> activeSubscribers = ConcurrentHashMap.newKeySet();
+    // One Redis listener is shared by all WebSocket clients subscribed to a ticker.
+    private final Map<String, Set<PriceUpdateCallback>> callbacksByTicker = new ConcurrentHashMap<>();
+    private final Map<String, MessageListener> redisListeners = new ConcurrentHashMap<>();
     
     public PriceStreamingService(
             RedisTemplate<String, PriceDTO> priceRedisTemplate,
             RedisTemplate<String, String> stringRedisTemplate,
-            ObjectMapper objectMapper) {
+            ObjectMapper objectMapper,
+            RedisMessageListenerContainer redisMessageListenerContainer) {
         this.priceRedisTemplate = priceRedisTemplate;
         this.stringRedisTemplate = stringRedisTemplate;
         this.objectMapper = objectMapper;
+        this.redisMessageListenerContainer = redisMessageListenerContainer;
         log.info("PriceStreamingService initialized");
     }
     
@@ -288,34 +297,63 @@ public class PriceStreamingService {
      * @return Price update stream
      */
     public void subscribeToTicker(String ticker, PriceUpdateCallback callback) {
-        String channel = "prices:" + ticker.toUpperCase();
-        activeSubscribers.add(channel);
-        
-        // Create a thread to listen for pub/sub messages
-        Thread listenerThread = new Thread(() -> {
-            try {
-                stringRedisTemplate.getConnectionFactory()
-                    .getConnection()
-                    .subscribe((message, pattern) -> {
-                        try {
-                            String json = new String(message.getBody());
-                            PriceDTO price = objectMapper.readValue(json, PriceDTO.class);
-                            callback.onPriceUpdate(price);
-                            priceCache.put(ticker, price);
-                        } catch (Exception e) {
-                            log.error("Error processing price update: {}", e.getMessage());
-                        }
-                    }, channel.getBytes());
-            } catch (Exception e) {
-                log.error("Error subscribing to {}: {}", channel, e.getMessage());
+        String normalizedTicker = normalizeTicker(ticker);
+        Set<PriceUpdateCallback> callbacks = callbacksByTicker.computeIfAbsent(
+            normalizedTicker, ignored -> ConcurrentHashMap.newKeySet());
+        callbacks.add(callback);
+
+        synchronized (redisListeners) {
+            if (!redisListeners.containsKey(normalizedTicker)) {
+                String channel = "prices:" + normalizedTicker;
+                MessageListener listener = this::handleRedisPriceMessage;
+                redisListeners.put(normalizedTicker, listener);
+                redisMessageListenerContainer.addMessageListener(listener, new ChannelTopic(channel));
+                log.info("Started shared Redis listener for ticker: {}", normalizedTicker);
             }
-        });
-        
-        listenerThread.setDaemon(true);
-        listenerThread.setName("PriceSubscriber-" + ticker);
-        listenerThread.start();
-        
-        log.info("Subscribed to price updates for ticker: {}", ticker);
+        }
+
+        getLatestPrice(normalizedTicker).ifPresent(callback::onPriceUpdate);
+    }
+
+    public void unsubscribeFromTicker(String ticker, PriceUpdateCallback callback) {
+        String normalizedTicker = normalizeTicker(ticker);
+        Set<PriceUpdateCallback> callbacks = callbacksByTicker.get(normalizedTicker);
+        if (callbacks == null) {
+            return;
+        }
+
+        callbacks.remove(callback);
+        if (!callbacks.isEmpty()) {
+            return;
+        }
+
+        callbacksByTicker.remove(normalizedTicker, callbacks);
+        synchronized (redisListeners) {
+            MessageListener listener = redisListeners.remove(normalizedTicker);
+            if (listener != null) {
+                redisMessageListenerContainer.removeMessageListener(
+                    listener, new ChannelTopic("prices:" + normalizedTicker));
+                log.info("Stopped shared Redis listener for ticker: {}", normalizedTicker);
+            }
+        }
+    }
+
+    private void handleRedisPriceMessage(Message message, byte[] pattern) {
+        String channel = new String(message.getChannel());
+        String ticker = channel.substring("prices:".length()).toUpperCase(Locale.ROOT);
+        try {
+            PriceDTO price = objectMapper.readValue(message.getBody(), PriceDTO.class);
+            priceCache.put(ticker, price);
+            for (PriceUpdateCallback callback : callbacksByTicker.getOrDefault(ticker, Set.of())) {
+                try {
+                    callback.onPriceUpdate(price);
+                } catch (RuntimeException e) {
+                    log.debug("Price callback failed for {}: {}", ticker, e.getMessage());
+                }
+            }
+        } catch (Exception e) {
+            log.error("Error processing price update for {}: {}", ticker, e.getMessage());
+        }
     }
     
     /**

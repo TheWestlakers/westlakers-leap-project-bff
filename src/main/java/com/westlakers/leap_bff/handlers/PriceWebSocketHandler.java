@@ -21,6 +21,8 @@ public class PriceWebSocketHandler implements WebSocketHandler {
 
     private final Set<WebSocketSession> sessions = ConcurrentHashMap.newKeySet();
     private final Map<WebSocketSession, Set<String>> subscriptions = new ConcurrentHashMap<>();
+    private final Map<WebSocketSession, Map<String, PriceStreamingService.PriceUpdateCallback>> callbacks =
+        new ConcurrentHashMap<>();
     private final ObjectMapper objectMapper = new ObjectMapper();
     private final PriceStreamingService priceStreamingService;
 
@@ -32,6 +34,7 @@ public class PriceWebSocketHandler implements WebSocketHandler {
     public void afterConnectionEstablished(WebSocketSession session) throws Exception {
         sessions.add(session);
         subscriptions.put(session, ConcurrentHashMap.newKeySet());
+        callbacks.put(session, new ConcurrentHashMap<>());
         log.info("WebSocket connected. Total sessions: {}", sessions.size());
         
         // Send welcome message
@@ -86,7 +89,16 @@ public class PriceWebSocketHandler implements WebSocketHandler {
     @Override
     public void afterConnectionClosed(WebSocketSession session, CloseStatus closeStatus) throws Exception {
         sessions.remove(session);
-        subscriptions.remove(session);
+        Set<String> subscribedTickers = subscriptions.remove(session);
+        Map<String, PriceStreamingService.PriceUpdateCallback> sessionCallbacks = callbacks.remove(session);
+        if (subscribedTickers != null && sessionCallbacks != null) {
+            for (String ticker : subscribedTickers) {
+                PriceStreamingService.PriceUpdateCallback callback = sessionCallbacks.remove(ticker);
+                if (callback != null) {
+                    priceStreamingService.unsubscribeFromTicker(ticker, callback);
+                }
+            }
+        }
         log.info("WebSocket closed. Total sessions: {}", sessions.size());
     }
 
@@ -116,7 +128,7 @@ public class PriceWebSocketHandler implements WebSocketHandler {
         subscriptions.put(session, subs);
 
         for (String ticker : newTickers) {
-            priceStreamingService.subscribeToTicker(ticker, price -> {
+            PriceStreamingService.PriceUpdateCallback callback = price -> {
                 if (!session.isOpen() || !subscriptions.getOrDefault(session, Set.of()).contains(ticker)) {
                     return;
                 }
@@ -130,7 +142,9 @@ public class PriceWebSocketHandler implements WebSocketHandler {
                 } catch (IOException e) {
                     log.debug("Unable to send price update to {}: {}", session.getId(), e.getMessage());
                 }
-            });
+            };
+            callbacks.get(session).put(ticker, callback);
+            priceStreamingService.subscribeToTicker(ticker, callback);
         }
         
         log.info("Subscribe request from {} for tickers: {}", session.getId(), tickers);
@@ -157,6 +171,15 @@ public class PriceWebSocketHandler implements WebSocketHandler {
             .filter(subs::remove)
             .toList();
         subscriptions.put(session, subs);
+
+        Map<String, PriceStreamingService.PriceUpdateCallback> sessionCallbacks = callbacks.get(session);
+        for (String ticker : removedTickers) {
+            PriceStreamingService.PriceUpdateCallback callback = sessionCallbacks == null
+                ? null : sessionCallbacks.remove(ticker);
+            if (callback != null) {
+                priceStreamingService.unsubscribeFromTicker(ticker, callback);
+            }
+        }
         
         log.info("Unsubscribe request from {} for tickers: {}", session.getId(), tickers);
         
@@ -168,9 +191,11 @@ public class PriceWebSocketHandler implements WebSocketHandler {
     }
 
     private void sendMessage(WebSocketSession session, Object payload) throws IOException {
-        if (session.isOpen()) {
-            String json = objectMapper.writeValueAsString(payload);
-            session.sendMessage(new TextMessage(json));
+        String json = objectMapper.writeValueAsString(payload);
+        synchronized (session) {
+            if (session.isOpen()) {
+                session.sendMessage(new TextMessage(json));
+            }
         }
     }
 
