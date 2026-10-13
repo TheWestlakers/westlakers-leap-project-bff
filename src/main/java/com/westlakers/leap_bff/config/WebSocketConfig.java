@@ -1,9 +1,6 @@
 package com.westlakers.leap_bff.config;
 
 import com.westlakers.leap_bff.handlers.PriceWebSocketHandler;
-import com.westlakers.leap_bff.services.PriceStreamingService;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.web.socket.config.annotation.EnableWebSocket;
 import org.springframework.web.socket.config.annotation.WebSocketConfigurer;
@@ -13,12 +10,10 @@ import org.springframework.web.socket.config.annotation.WebSocketHandlerRegistry
 @EnableWebSocket
 public class WebSocketConfig implements WebSocketConfigurer {
 
-    @Autowired
-    private PriceWebSocketHandler priceWebSocketHandler;
+    private final PriceWebSocketHandler priceWebSocketHandler;
 
-    @Bean
-    public PriceWebSocketHandler priceWebSocketHandler(PriceStreamingService priceStreamingService) {
-        return new PriceWebSocketHandler(priceStreamingService);
+    public WebSocketConfig(PriceWebSocketHandler priceWebSocketHandler) {
+        this.priceWebSocketHandler = priceWebSocketHandler;
     }
 
     @Override
