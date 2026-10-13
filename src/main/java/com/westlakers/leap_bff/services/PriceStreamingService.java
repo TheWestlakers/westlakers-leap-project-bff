@@ -32,6 +32,8 @@ public class PriceStreamingService {
     private static final String FOCUS_CLIENT_KEY_PREFIX = "prices:focus:client:";
     private static final String WATCHLIST_SUBSCRIBERS_KEY_PREFIX = "prices:watchlist:subs:";
     private static final String FOCUS_SUBSCRIBERS_KEY_PREFIX = "prices:focus:subs:";
+    private static final String FOCUS_LEASE_KEY_PREFIX = "prices:focus:lease:";
+    private static final Duration FOCUS_LEASE = Duration.ofMinutes(5);
     private static final String WATCHLIST_TICKERS_SET = "prices:tickers:watchlist";
     private static final String FOCUS_TICKERS_SET = "prices:tickers:focus";
     
@@ -196,6 +198,11 @@ public class PriceStreamingService {
         String normalizedClientId = normalizeClientId(clientId);
         String normalizedTicker = normalizeTicker(ticker);
 
+        stringRedisTemplate.opsForValue().set(
+            focusLeaseKey(normalizedTicker, normalizedClientId),
+            normalizedClientId,
+            FOCUS_LEASE
+        );
         stringRedisTemplate.opsForSet().add(FOCUS_CLIENT_KEY_PREFIX + normalizedClientId, normalizedTicker);
         stringRedisTemplate.opsForSet().add(FOCUS_SUBSCRIBERS_KEY_PREFIX + normalizedTicker, normalizedClientId);
         reconcileTickerRegistration(normalizedTicker);
@@ -208,6 +215,7 @@ public class PriceStreamingService {
         String normalizedClientId = normalizeClientId(clientId);
         String normalizedTicker = normalizeTicker(ticker);
 
+        stringRedisTemplate.delete(focusLeaseKey(normalizedTicker, normalizedClientId));
         stringRedisTemplate.opsForSet().remove(FOCUS_CLIENT_KEY_PREFIX + normalizedClientId, normalizedTicker);
         stringRedisTemplate.opsForSet().remove(FOCUS_SUBSCRIBERS_KEY_PREFIX + normalizedTicker, normalizedClientId);
         reconcileTickerRegistration(normalizedTicker);
@@ -220,6 +228,10 @@ public class PriceStreamingService {
         String normalizedClientId = normalizeClientId(clientId);
         return Optional.ofNullable(stringRedisTemplate.opsForSet().members(WATCHLIST_CLIENT_KEY_PREFIX + normalizedClientId))
             .orElse(Collections.emptySet());
+    }
+
+    private String focusLeaseKey(String ticker, String clientId) {
+        return FOCUS_LEASE_KEY_PREFIX + ticker + ":" + clientId;
     }
 
     private String normalizeTicker(String ticker) {

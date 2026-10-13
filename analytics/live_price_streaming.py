@@ -43,6 +43,7 @@ logger = logging.getLogger(__name__)
 ACTIVE_TICKERS_SET = 'prices:tickers:active'
 WATCHLIST_TICKERS_SET = 'prices:tickers:watchlist'
 FOCUS_TICKERS_SET = 'prices:tickers:focus'
+FOCUS_LEASE_KEY_PREFIX = 'prices:focus:lease:'
 
 
 class LivePriceStreamer:
@@ -152,11 +153,7 @@ class LivePriceStreamer:
 
         try:
             watchlist = self.redis_client.smembers(WATCHLIST_TICKERS_SET)
-            focused = self.redis_client.smembers(FOCUS_TICKERS_SET)
-            if not watchlist and not focused:
-                watchlist = self.redis_client.smembers(ACTIVE_TICKERS_SET)
-            if not watchlist and not focused:
-                return
+            focused = self._get_active_focus_tickers()
 
             normalize = lambda values: {
                 ticker.strip().upper() for ticker in values if ticker and ticker.strip()
@@ -175,6 +172,21 @@ class LivePriceStreamer:
                 logger.info(f"Updated focused tickers from Redis: {sorted(self.focused_tickers)}")
         except Exception as e:
             logger.warning(f"Failed refreshing tickers from Redis: {e}")
+
+    def _get_active_focus_tickers(self) -> Set[str]:
+        """Read hot symbols from five-minute focus leases, ignoring expired set members."""
+        if not self.redis_client:
+            return set()
+
+        prefix_length = len(FOCUS_LEASE_KEY_PREFIX)
+        focused = set()
+        for key in self.redis_client.scan_iter(match=f'{FOCUS_LEASE_KEY_PREFIX}*'):
+            key_text = key.decode() if isinstance(key, bytes) else key
+            suffix = key_text[prefix_length:]
+            ticker = suffix.split(':', 1)[0]
+            if ticker:
+                focused.add(ticker.upper())
+        return focused
 
     @staticmethod
     def _history_value(history, field: str, ticker: str):
@@ -225,7 +237,6 @@ class LivePriceStreamer:
         price_data = {
             'ticker': ticker.upper(), 'timestamp': datetime.now().isoformat(),
             'currentPrice': current_price, 'previousClose': previous_close,
-            'bid': message.get('bid'), 'ask': message.get('ask'),
             'volume': message.get('day_volume') or message.get('volume')
         }
         if previous_close:
@@ -316,8 +327,6 @@ class LivePriceStreamer:
                 'timestamp': datetime.now().isoformat(),
                 'currentPrice': current_price,
                 'previousClose': previous_close,
-                'bid': info.get('bid'),
-                'ask': info.get('ask'),
                 'volume': info.get('volume'),
                 'marketCap': info.get('marketCap'),
                 'peRatio': info.get('trailingPE'),
@@ -403,8 +412,7 @@ class LivePriceStreamer:
                 change_pct = price_data.get('changePct', 'N/A')
                 current_price = price_data.get('currentPrice', 'N/A')
                 logger.info(
-                    f"{ticker}: ${current_price} ({change} {change_pct}%) "
-                    f"[Bid: ${price_data.get('bid', 'N/A')} | Ask: ${price_data.get('ask', 'N/A')}]"
+                    f"{ticker}: ${current_price} ({change} {change_pct}%)"
                 )
         
         return successful
