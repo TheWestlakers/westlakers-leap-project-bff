@@ -32,6 +32,8 @@ public class PriceStreamingService {
     private static final String FOCUS_CLIENT_KEY_PREFIX = "prices:focus:client:";
     private static final String WATCHLIST_SUBSCRIBERS_KEY_PREFIX = "prices:watchlist:subs:";
     private static final String FOCUS_SUBSCRIBERS_KEY_PREFIX = "prices:focus:subs:";
+    private static final String WATCHLIST_TICKERS_SET = "prices:tickers:watchlist";
+    private static final String FOCUS_TICKERS_SET = "prices:tickers:focus";
     
     private final RedisTemplate<String, PriceDTO> priceRedisTemplate;
     private final RedisTemplate<String, String> stringRedisTemplate;
@@ -252,6 +254,17 @@ public class PriceStreamingService {
             stringRedisTemplate.opsForSet().add(ACTIVE_TICKERS_SET, normalizedTicker);
         } else {
             stringRedisTemplate.opsForSet().remove(ACTIVE_TICKERS_SET, normalizedTicker);
+        }
+
+        updateCategoryRegistration(WATCHLIST_TICKERS_SET, normalizedTicker, watchlistSubs != null && watchlistSubs > 0);
+        updateCategoryRegistration(FOCUS_TICKERS_SET, normalizedTicker, focusSubs != null && focusSubs > 0);
+    }
+
+    private void updateCategoryRegistration(String tickerSet, String ticker, boolean subscribed) {
+        if (subscribed) {
+            stringRedisTemplate.opsForSet().add(tickerSet, ticker);
+        } else {
+            stringRedisTemplate.opsForSet().remove(tickerSet, ticker);
         }
     }
     
