@@ -10,8 +10,6 @@ import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.data.redis.serializer.GenericJackson2JsonRedisSerializer;
 import org.springframework.data.redis.serializer.StringRedisSerializer;
 
-import com.westlakers.leap_bff.dtos.PriceDTO;
-
 /**
  * Redis configuration for live price streaming.
  * Sets up custom RedisTemplate for PriceDTO serialization.
@@ -33,8 +31,8 @@ public class RedisConfig {
      */
     @Bean
     @ConditionalOnMissingBean(name = "priceRedisTemplate")
-    public RedisTemplate<String, PriceDTO> priceRedisTemplate(RedisConnectionFactory connectionFactory) {
-        RedisTemplate<String, PriceDTO> template = new RedisTemplate<>();
+    public RedisTemplate priceRedisTemplate(RedisConnectionFactory connectionFactory) {
+        RedisTemplate template = new RedisTemplate();
         template.setConnectionFactory(connectionFactory);
         
         // Use String serialization for keys
