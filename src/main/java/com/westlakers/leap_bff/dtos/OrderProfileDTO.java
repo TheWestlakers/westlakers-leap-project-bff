@@ -28,6 +28,7 @@ public class OrderProfileDTO {
     private String side;
     private String orderType;
     private BigDecimal limitPrice;
+    private BigDecimal executionPrice;
     private BigDecimal quantity;
     private LocalDateTime placedAt;
     private LocalDateTime executedAt;
@@ -48,6 +49,7 @@ public class OrderProfileDTO {
                 .side(order.getSide())
                 .orderType(order.getOrderType())
                 .limitPrice(order.getLimitPrice())
+                .executionPrice(order.getExecutionPrice())
                 .quantity(order.getQuantity())
                 .placedAt(order.getPlacedAt())
                 .executedAt(order.getExecutedAt())

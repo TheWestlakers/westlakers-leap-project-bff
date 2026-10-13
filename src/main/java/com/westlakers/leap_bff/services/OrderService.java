@@ -516,6 +516,7 @@ public class OrderService {
         
         // Update order to EXECUTED status
         order.setStatus(2L); // EXECUTED status
+        order.setExecutionPrice(executionPrice);
         order.setExecutedAt(LocalDateTime.now());
         
         int result = this.orderMapper.update(order);
