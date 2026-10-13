@@ -4,6 +4,7 @@ import lombok.Data;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Null;
 import jakarta.validation.constraints.Past;
 
 import java.time.LocalDate;
@@ -16,6 +17,9 @@ public class RegisterRequest {
 
     @NotBlank(message = "Password is required")
     private String password;
+
+    @Null(message = "Username is not accepted; use email")
+    private String username;
 
     @NotBlank(message = "First name is required")
     private String firstName;
