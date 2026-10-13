@@ -221,11 +221,12 @@ class LivePriceStreamer:
             for ticker in sorted(self.watchlist_tickers):
                 current_price = self._history_value(history, 'Close', ticker)
                 if current_price is not None:
+                    volume = self._history_value(history, 'Volume', ticker)
                     results[ticker] = {
                         'ticker': ticker,
                         'timestamp': datetime.now().isoformat(),
                         'currentPrice': float(current_price),
-                        'volume': self._history_value(history, 'Volume', ticker)
+                        'volume': float(volume) if volume is not None else None
                     }
             return results
         except Exception as e:
