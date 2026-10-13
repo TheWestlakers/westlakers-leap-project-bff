@@ -130,6 +130,28 @@ class AuthControllerTest {
 	}
 
 	@Test
+	void register_RandomUsername_IsRejected() throws Exception {
+		String requestJson = """
+				{
+					"email": "new.user@example.com",
+					"username": "random-user",
+					"password": "StrongPassword123!",
+					"firstName": "New",
+					"lastName": "User",
+					"phoneNumber": "5551234567",
+					"dateOfBirth": "1995-05-10"
+				}
+				""";
+
+		mockMvc.perform(post("/api/auth/register")
+				.contentType(MediaType.APPLICATION_JSON)
+				.content(requestJson))
+			.andExpect(status().isBadRequest());
+
+		verify(authService, never()).register(any(RegisterRequest.class));
+	}
+
+	@Test
 	void validateToken_WithBearerHeader_ReturnsTrue() throws Exception {
 		when(jwtService.validateToken("valid.token")).thenReturn(true);
 
