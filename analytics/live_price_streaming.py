@@ -60,7 +60,7 @@ class LivePriceStreamer:
         redis_port: int = 6379,
         redis_db: int = 0,
         tickers: Optional[List[str]] = None,
-        polling_interval: float = 3.0,
+        polling_interval: float = 1.0,
         stagger_interval: float = 1.0,
         focus_polling_interval: float = 1.0
     ):
