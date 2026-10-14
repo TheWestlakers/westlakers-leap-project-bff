@@ -207,18 +207,19 @@ class LivePriceStreamer:
             pass
         return None
 
-    def fetch_watchlist_batch(self) -> Dict[str, Dict[str, Any]]:
-        """Fetch all watchlist prices with one yfinance chart request."""
-        if not self.watchlist_tickers:
+    def fetch_watchlist_batch(self, tickers: Optional[Set[str]] = None) -> Dict[str, Dict[str, Any]]:
+        """Fetch requested prices with one yfinance chart request."""
+        requested_tickers = tickers if tickers is not None else self.watchlist_tickers
+        if not requested_tickers:
             return {}
         try:
-            history = yf.Tickers(' '.join(sorted(self.watchlist_tickers))).history(
+            history = yf.Tickers(' '.join(sorted(requested_tickers))).history(
                 period='1d', interval='1m', prepost=True, actions=False,
                 auto_adjust=False, threads=True, group_by='column',
                 progress=False, timeout=10
             )
             results = {}
-            for ticker in sorted(self.watchlist_tickers):
+            for ticker in sorted(requested_tickers):
                 current_price = self._history_value(history, 'Close', ticker)
                 if current_price is not None:
                     volume = self._history_value(history, 'Volume', ticker)
@@ -409,7 +410,8 @@ class LivePriceStreamer:
             int: Number of successfully fetched prices
         """
         successful = 0
-        for ticker, price_data in self.fetch_watchlist_batch().items():
+        active_tickers = self.watchlist_tickers | self.focused_tickers
+        for ticker, price_data in self.fetch_watchlist_batch(active_tickers).items():
             if price_data:
                 self.publish_to_redis(price_data)
                 successful += 1
