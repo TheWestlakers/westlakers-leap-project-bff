@@ -40,6 +40,9 @@ class OrderServiceTest {
     @Mock
     private HoldingMapper holdingMapper;
 
+    @Mock
+    private OrderRejectionService orderRejectionService;
+
     @InjectMocks
     private OrderService orderService;
 
@@ -491,13 +494,81 @@ class OrderServiceTest {
     @Test
     void testCreateLimitTrade_InsufficientFunds_ThrowsException() {
         // Arrange
-        testAccount.setSettledCash(new BigDecimal("500.00")); // Less than required for limit order
+        testAccount.setSettledCash(new BigDecimal("100.00")); // Less than 100 shares at the $140 limit price
         when(accountMapper.findById(1L)).thenReturn(testAccount);
         when(instrumentMapper.findById(1L)).thenReturn(testInstrument);
 
         // Act & Assert
         assertThrows(ApiException.class, () -> orderService.createLimitTrade(testLimitOrderRequest));
         verify(orderMapper, never()).insert(any());
+    }
+
+    @Test
+    void testExecuteLimitBuyOrder_UsesPerShareLimit() {
+        // Arrange
+        testOrder.setOrderType("LIMIT");
+        testOrder.setQuantity(new BigDecimal("3"));
+        testOrder.setLimitPrice(new BigDecimal("150.00"));
+        when(orderMapper.findById(1L)).thenReturn(testOrder);
+        when(accountMapper.findById(1L)).thenReturn(testAccount);
+
+        assertThrows(ApiException.class, () -> orderService.executeTrade(1L, new BigDecimal("151.00")));
+        verify(orderRejectionService).reject(any(Order.class));
+    }
+
+    @Test
+    void testExecuteLimitBuyOrder_ExecutesWhenPriceIsAtOrBelowLimit() {
+        // Arrange
+        testOrder.setOrderType("LIMIT");
+        testOrder.setQuantity(new BigDecimal("3"));
+        testOrder.setLimitPrice(new BigDecimal("150.00"));
+        when(orderMapper.findById(1L)).thenReturn(testOrder);
+        when(accountMapper.findById(1L)).thenReturn(testAccount);
+        when(orderMapper.update(any())).thenReturn(1);
+        when(orderStatusMapper.findById(2L)).thenReturn(new OrderStatus());
+        when(holdingService.upsertHoldingOnTrade(any(), any(), any(), any(), any())).thenReturn(new HoldingDTO());
+
+        // Act
+        TradeExecutionResponse result = orderService.executeTrade(1L, new BigDecimal("150.00"));
+
+        assertEquals(new BigDecimal("450.00"), result.getTotalValue());
+        verify(orderMapper, times(1)).update(any());
+    }
+
+    @Test
+    void testExecuteLimitSellOrder_RequiresMinimumPerSharePrice() {
+        // Arrange
+        testOrder.setSide("SELL");
+        testOrder.setOrderType("LIMIT");
+        testOrder.setQuantity(new BigDecimal("3"));
+        testOrder.setLimitPrice(new BigDecimal("150.00"));
+        when(orderMapper.findById(1L)).thenReturn(testOrder);
+        when(accountMapper.findById(1L)).thenReturn(testAccount);
+        when(holdingMapper.findByAccountAndInstrument(1L, 1L)).thenReturn(testHolding);
+
+        assertThrows(ApiException.class, () -> orderService.executeTrade(1L, new BigDecimal("149.00")));
+        verify(orderRejectionService).reject(any(Order.class));
+    }
+
+    @Test
+    void testExecuteLimitSellOrder_ExecutesWhenPriceMeetsMinimum() {
+        // Arrange
+        testOrder.setSide("SELL");
+        testOrder.setOrderType("LIMIT");
+        testOrder.setQuantity(new BigDecimal("3"));
+        testOrder.setLimitPrice(new BigDecimal("150.00"));
+        when(orderMapper.findById(1L)).thenReturn(testOrder);
+        when(accountMapper.findById(1L)).thenReturn(testAccount);
+        when(holdingMapper.findByAccountAndInstrument(1L, 1L)).thenReturn(testHolding);
+        when(orderMapper.update(any())).thenReturn(1);
+        when(orderStatusMapper.findById(2L)).thenReturn(new OrderStatus());
+        when(holdingService.upsertHoldingOnTrade(any(), any(), any(), any(), any())).thenReturn(new HoldingDTO());
+
+        // Act
+        TradeExecutionResponse result = orderService.executeTrade(1L, new BigDecimal("150.00"));
+
+        assertEquals(new BigDecimal("450.00"), result.getTotalValue());
+        verify(orderMapper, times(1)).update(any());
     }
 
     @Test

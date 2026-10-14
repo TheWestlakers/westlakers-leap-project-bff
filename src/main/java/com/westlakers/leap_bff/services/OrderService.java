@@ -37,16 +37,19 @@ public class OrderService {
     private final InstrumentMapper instrumentMapper;
     private final HoldingService holdingService;
     private final HoldingMapper holdingMapper;
+    private final OrderRejectionService orderRejectionService;
 
     public OrderService(OrderMapper orderMapper, OrderStatusMapper orderStatusMapper, 
                         AccountMapper accountMapper, InstrumentMapper instrumentMapper,
-                        HoldingService holdingService, HoldingMapper holdingMapper) {
+                        HoldingService holdingService, HoldingMapper holdingMapper,
+                        OrderRejectionService orderRejectionService) {
         this.orderMapper = orderMapper;
         this.orderStatusMapper = orderStatusMapper;
         this.accountMapper = accountMapper;
         this.instrumentMapper = instrumentMapper;
         this.holdingService = holdingService;
         this.holdingMapper = holdingMapper;
+        this.orderRejectionService = orderRejectionService;
     }
 
     @Transactional(readOnly = true)
@@ -160,11 +163,12 @@ public class OrderService {
             throw new ApiException(ErrorCode.ORDER_NOT_FOUND, "Order not found with id: " + orderId);
         }
 
-        // Prevent updates to orders that are already executed or cancelled
-        if (existingOrder.getStatus() == 2L || existingOrder.getStatus() == 3L) {
+        // Prevent updates to orders that are already executed, cancelled, or rejected
+        if (existingOrder.getStatus() == 2L || existingOrder.getStatus() == 3L || existingOrder.getStatus() == 4L) {
             throw new ApiException(ErrorCode.OPERATION_FAILED,
                 "Cannot update order with id: " + orderId + ". Order status is " + 
-                (existingOrder.getStatus() == 2L ? "EXECUTED" : "CANCELLED")
+                (existingOrder.getStatus() == 2L ? "EXECUTED" :
+                 existingOrder.getStatus() == 3L ? "CANCELLED" : "REJECTED")
             );
         }
 
@@ -270,7 +274,6 @@ public class OrderService {
         // Validate limit price makes sense for the side
         validateLimitPriceForSide(request.getSide(), request.getLimitPrice());
         
-        // Validate account has sufficient funds to cover the limit order cost
         validateAccountBalance(account, request.getSide(), request.getQuantity(), request.getLimitPrice());
         
         // For SELL orders, validate that account holds the instrument
@@ -297,7 +300,7 @@ public class OrderService {
         
         // Build and return response
         String message = String.format(
-            "LIMIT order created successfully - waiting for %s price to reach %.2f",
+            "LIMIT order created successfully - waiting for %s price to reach %.2f per share",
             request.getSide().toUpperCase(),
             request.getLimitPrice()
         );
@@ -360,7 +363,7 @@ public class OrderService {
                 throw new ApiException(ErrorCode.INVALID_INPUT, "Account does not have sufficient settled cash to execute BUY order");
             }
             
-            // Calculate and validate exact amount needed based on price per unit
+            // Calculate and validate exact amount needed based on price per unit.
             if (pricePerUnit != null) {
                 BigDecimal totalCost = quantity.multiply(pricePerUnit);
                 if (account.getSettledCash().compareTo(totalCost) < 0) {
@@ -463,7 +466,8 @@ public class OrderService {
         // Validate order is in PENDING state (1L) before execution
         if (order.getStatus() != 1L) {
             String statusName = order.getStatus() == 2L ? "EXECUTED" : 
-                               order.getStatus() == 3L ? "CANCELLED" : "UNKNOWN";
+                               order.getStatus() == 3L ? "CANCELLED" :
+                               order.getStatus() == 4L ? "REJECTED" : "UNKNOWN";
             throw new ApiException(ErrorCode.OPERATION_FAILED,
                 "Cannot execute order with id: " + orderId + ". Order status is " + statusName + 
                 ". Only PENDING orders can be executed."
@@ -475,23 +479,20 @@ public class OrderService {
             throw new ApiException(ErrorCode.INVALID_PRICE, "Execution price must be greater than 0");
         }
         
-        // For LIMIT orders, validate execution price satisfies the limit conditions
         if ("LIMIT".equalsIgnoreCase(order.getOrderType())) {
             if (order.getLimitPrice() != null) {
                 if ("BUY".equalsIgnoreCase(order.getSide())) {
-                    // BUY limit orders execute only at or below the limit price
                     if (executionPrice.compareTo(order.getLimitPrice()) > 0) {
-                        throw new ApiException(ErrorCode.INVALID_INPUT,
-                            "Execution price $" + executionPrice + 
-                            " exceeds BUY limit price $" + order.getLimitPrice()
+                        rejectLimitOrder(order,
+                            "Execution price $" + executionPrice +
+                            " exceeds BUY limit price $" + order.getLimitPrice() + " per share"
                         );
                     }
                 } else if ("SELL".equalsIgnoreCase(order.getSide())) {
-                    // SELL limit orders execute only at or above the limit price
                     if (executionPrice.compareTo(order.getLimitPrice()) < 0) {
-                        throw new ApiException(ErrorCode.INVALID_INPUT,
-                            "Execution price $" + executionPrice + 
-                            " is below SELL limit price $" + order.getLimitPrice()
+                        rejectLimitOrder(order,
+                            "Execution price $" + executionPrice +
+                            " is below SELL limit price $" + order.getLimitPrice() + " per share"
                         );
                     }
                 }
@@ -502,7 +503,7 @@ public class OrderService {
         if ("BUY".equalsIgnoreCase(order.getSide())) {
             BigDecimal totalCost = order.getQuantity().multiply(executionPrice);
             if (account.getSettledCash() == null || account.getSettledCash().compareTo(totalCost) < 0) {
-                throw new ApiException(ErrorCode.INVALID_INPUT,
+                rejectLimitOrderIfNeeded(order,
                     "Insufficient funds at execution. Account has " + account.getSettledCash() + 
                     " but execution requires " + totalCost
                 );
@@ -511,11 +512,16 @@ public class OrderService {
         
         // For SELL orders, validate account still holds the required shares at execution time
         if ("SELL".equalsIgnoreCase(order.getSide())) {
-            validateSellHoldings(account, order.getInstrumentId(), order.getQuantity());
+            try {
+                validateSellHoldings(account, order.getInstrumentId(), order.getQuantity());
+            } catch (ApiException exception) {
+                rejectLimitOrderIfNeeded(order, exception.getDetails() != null ? exception.getDetails() : exception.getMessage());
+            }
         }
         
         // Update order to EXECUTED status
         order.setStatus(2L); // EXECUTED status
+        order.setExecutionPrice(executionPrice);
         order.setExecutedAt(LocalDateTime.now());
         
         int result = this.orderMapper.update(order);
@@ -559,6 +565,18 @@ public class OrderService {
         response.setTotalValue(totalValue);
         response.setStatus("EXECUTED");
         return response;
+    }
+
+    private void rejectLimitOrderIfNeeded(Order order, String message) {
+        if ("LIMIT".equalsIgnoreCase(order.getOrderType())) {
+            rejectLimitOrder(order, message);
+        }
+        throw new ApiException(ErrorCode.INVALID_INPUT, message);
+    }
+
+    private void rejectLimitOrder(Order order, String message) {
+        orderRejectionService.reject(order);
+        throw new ApiException(ErrorCode.INVALID_INPUT, message);
     }
 
     @Transactional
