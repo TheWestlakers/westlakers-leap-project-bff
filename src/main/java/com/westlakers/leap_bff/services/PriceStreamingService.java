@@ -424,8 +424,8 @@ public class PriceStreamingService {
         String normalizedTicker = normalizeTicker(ticker);
         String normalizedPeriod = period == null ? "5d" : period.toLowerCase(Locale.ROOT);
         String normalizedInterval = interval == null ? "5m" : interval.toLowerCase(Locale.ROOT);
-        if (!Set.of("1d", "5d", "1y", "3y", "5y").contains(normalizedPeriod)
-                || !Set.of("1m", "5m", "1d", "1wk").contains(normalizedInterval)) {
+        if (!Set.of("1d", "5d", "1mo", "6mo", "1y", "3y").contains(normalizedPeriod)
+            || !Set.of("1m", "5m", "15m", "1h", "1d", "1wk").contains(normalizedInterval)) {
             throw new IllegalArgumentException("Unsupported history period or interval");
         }
 
@@ -434,9 +434,11 @@ public class PriceStreamingService {
             long start = switch (normalizedPeriod) {
                 case "1d" -> end - Duration.ofDays(1).toSeconds();
                 case "5d" -> end - Duration.ofDays(5).toSeconds();
+                case "1mo" -> end - Duration.ofDays(30).toSeconds();
+                case "6mo" -> end - Duration.ofDays(182).toSeconds();
                 case "1y" -> end - Duration.ofDays(365).toSeconds();
                 case "3y" -> end - Duration.ofDays(365 * 3L).toSeconds();
-                default -> end - Duration.ofDays(365 * 5L).toSeconds();
+                default -> end - Duration.ofDays(365).toSeconds();
             };
             String url = "https://query1.finance.yahoo.com/v8/finance/chart/" + normalizedTicker
                 + "?period1=" + start + "&period2=" + end + "&interval=" + normalizedInterval
