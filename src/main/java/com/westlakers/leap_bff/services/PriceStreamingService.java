@@ -1,9 +1,12 @@
 package com.westlakers.leap_bff.services;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.JsonNode;
 import com.westlakers.leap_bff.dtos.PriceDTO;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.data.redis.connection.stream.ObjectRecord;
+import org.springframework.data.domain.Range;
+import org.springframework.data.redis.connection.Limit;
+import org.springframework.data.redis.connection.stream.MapRecord;
 import org.springframework.data.redis.connection.stream.StreamRecords;
 import org.springframework.data.redis.connection.Message;
 import org.springframework.data.redis.core.RedisTemplate;
@@ -15,6 +18,10 @@ import org.springframework.data.redis.connection.RedisConnectionFactory;
 import org.springframework.stereotype.Service;
 import java.time.Duration;
 import java.time.Instant;
+import java.net.URI;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -46,6 +53,7 @@ public class PriceStreamingService {
     private final RedisTemplate<String, String> stringRedisTemplate;
     private final ObjectMapper objectMapper;
     private final RedisMessageListenerContainer redisMessageListenerContainer;
+    private final HttpClient httpClient = HttpClient.newHttpClient();
     
     // In-memory cache of latest prices
     private final Map<String, PriceDTO> priceCache = new ConcurrentHashMap<>();
@@ -364,16 +372,99 @@ public class PriceStreamingService {
      * @return List of price records
      */
     public List<Map<String, String>> getPriceHistory(int count) {
+        return getPriceHistory(null, count);
+    }
+
+    /**
+     * Read recent prices from the Redis stream, optionally limited to one ticker.
+     */
+    public List<Map<String, String>> getPriceHistory(String ticker, int count) {
         try {
-            // Note: Redis stream reading implementation
-            // This is a simplified version - full implementation would require
-            // proper StreamOffset and StreamReadOptions configuration
             List<Map<String, String>> history = new ArrayList<>();
-            // TODO: Implement full stream reading with pagination
+            int requestedCount = Math.max(1, Math.min(count, 5000));
+            String requestedTicker = ticker == null ? null : normalizeTicker(ticker);
+
+            List<MapRecord<String, Object, Object>> records =
+                stringRedisTemplate.opsForStream().reverseRange(
+                    "prices:stream", Range.unbounded(), Limit.limit().count(requestedCount * 4));
+
+            if (records != null) {
+                for (MapRecord<String, Object, Object> record : records) {
+                    Map<Object, Object> values = record.getValue();
+                    String recordTicker = Objects.toString(values.get("ticker"), "").toUpperCase(Locale.ROOT);
+                    if (requestedTicker != null && !requestedTicker.equals(recordTicker)) {
+                        continue;
+                    }
+
+                    Map<String, String> point = new LinkedHashMap<>();
+                    point.put("ticker", recordTicker);
+                    point.put("price", Objects.toString(values.get("price"), ""));
+                    point.put("timestamp", Objects.toString(values.get("timestamp"), record.getId().getValue()));
+                    history.add(point);
+                    if (history.size() >= requestedCount) {
+                        break;
+                    }
+                }
+            }
+
+            Collections.reverse(history);
             return history;
         } catch (Exception e) {
             log.error("Error reading price history: {}", e.getMessage());
             return Collections.emptyList();
+        }
+    }
+
+    /**
+     * Fetch chart history from Yahoo for the requested range and interval.
+     * Redis remains the fallback for environments without outbound access.
+     */
+    public List<Map<String, String>> getMarketHistory(String ticker, String period, String interval, int limit) {
+        String normalizedTicker = normalizeTicker(ticker);
+        String normalizedPeriod = period == null ? "5d" : period.toLowerCase(Locale.ROOT);
+        String normalizedInterval = interval == null ? "5m" : interval.toLowerCase(Locale.ROOT);
+        if (!Set.of("1d", "5d", "1y", "3y", "5y").contains(normalizedPeriod)
+                || !Set.of("1m", "5m", "1d", "1wk").contains(normalizedInterval)) {
+            throw new IllegalArgumentException("Unsupported history period or interval");
+        }
+
+        try {
+            long end = Instant.now().getEpochSecond();
+            long start = switch (normalizedPeriod) {
+                case "1d" -> end - Duration.ofDays(1).toSeconds();
+                case "5d" -> end - Duration.ofDays(5).toSeconds();
+                case "1y" -> end - Duration.ofDays(365).toSeconds();
+                case "3y" -> end - Duration.ofDays(365 * 3L).toSeconds();
+                default -> end - Duration.ofDays(365 * 5L).toSeconds();
+            };
+            String url = "https://query1.finance.yahoo.com/v8/finance/chart/" + normalizedTicker
+                + "?period1=" + start + "&period2=" + end + "&interval=" + normalizedInterval
+                + "&events=history&includeAdjustedClose=true";
+            HttpRequest request = HttpRequest.newBuilder(URI.create(url))
+                .header("User-Agent", "Mozilla/5.0")
+                .timeout(Duration.ofSeconds(10))
+                .GET()
+                .build();
+            JsonNode chart = objectMapper.readTree(httpClient.send(request, HttpResponse.BodyHandlers.ofString()).body())
+                .path("chart").path("result").path(0);
+            JsonNode timestamps = chart.path("timestamp");
+            JsonNode closes = chart.path("indicators").path("quote").path(0).path("close");
+            List<Map<String, String>> history = new ArrayList<>();
+            for (int index = 0; index < timestamps.size(); index++) {
+                JsonNode close = closes.path(index);
+                if (!close.isNumber()) {
+                    continue;
+                }
+                Map<String, String> point = new LinkedHashMap<>();
+                point.put("ticker", normalizedTicker);
+                point.put("price", close.asText());
+                point.put("timestamp", Instant.ofEpochSecond(timestamps.get(index).asLong()).toString());
+                history.add(point);
+            }
+            return history.size() > limit ? history.subList(history.size() - limit, history.size()) : history;
+        } catch (Exception error) {
+            log.warn("Yahoo history unavailable for {}: {}", normalizedTicker, error.getMessage());
+            return getPriceHistory(normalizedTicker, limit);
         }
     }
     

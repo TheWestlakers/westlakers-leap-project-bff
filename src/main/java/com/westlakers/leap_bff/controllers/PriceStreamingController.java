@@ -382,13 +382,23 @@ public class PriceStreamingController {
      * @return List of recent price records
      */
     @GetMapping("/history")
-    public ResponseEntity<?> getPriceHistory(@RequestParam(defaultValue = "10") int limit) {
+    public ResponseEntity<?> getPriceHistory(
+            @RequestParam(required = false) String ticker,
+            @RequestParam(defaultValue = "10") int limit,
+            @RequestParam(defaultValue = "5d") String period,
+            @RequestParam(defaultValue = "5m") String interval) {
         try {
-            List<Map<String, String>> history = priceStreamingService.getPriceHistory(limit);
+            if (ticker == null || ticker.isBlank()) {
+                return ResponseEntity.badRequest().body(Map.of("error", "ticker is required"));
+            }
+            List<Map<String, String>> history = priceStreamingService.getMarketHistory(ticker, period, interval, limit);
             
             return ResponseEntity.ok(Map.of(
                 "timestamp", new Date().toString(),
                 "limit", limit,
+                "ticker", ticker == null ? "ALL" : ticker.toUpperCase(Locale.ROOT),
+                "period", period,
+                "interval", interval,
                 "count", history.size(),
                 "history", history
             ));
