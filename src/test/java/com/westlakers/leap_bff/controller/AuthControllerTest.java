@@ -1,125 +1,175 @@
-// package com.westlakers.leap_bff.controller;
+package com.westlakers.leap_bff.controller;
 
-// import com.fasterxml.jackson.databind.ObjectMapper;
-// import com.westlakers.leap_bff.dtos.LoginRequest;
-// import com.westlakers.leap_bff.dtos.LoginResponse;
-// import com.westlakers.leap_bff.security.JwtService;
-// import org.junit.jupiter.api.BeforeEach;
-// import org.junit.jupiter.api.Test;
-// import org.springframework.beans.factory.annotation.Autowired;
-// import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
-// import org.springframework.boot.test.context.SpringBootTest;
-// import org.springframework.boot.test.mock.mockito.MockBean;
-// import org.springframework.http.MediaType;
-// import org.springframework.test.web.servlet.MockMvc;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.westlakers.leap_bff.dtos.LoginRequest;
+import com.westlakers.leap_bff.dtos.RegisterRequest;
+import com.westlakers.leap_bff.dtos.RegisterResponse;
+import com.westlakers.leap_bff.exceptions.ApiException;
+import com.westlakers.leap_bff.exceptions.ErrorCode;
+import com.westlakers.leap_bff.exceptions.GlobalExceptionHandler;
+import com.westlakers.leap_bff.security.JwtService;
+import com.westlakers.leap_bff.services.AuthService;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.mockito.Mock;
+import org.mockito.MockitoAnnotations;
+import org.springframework.http.MediaType;
+import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.setup.MockMvcBuilders;
+import org.springframework.validation.beanvalidation.LocalValidatorFactoryBean;
 
-// import static org.hamcrest.Matchers.containsString;
-// import static org.junit.jupiter.api.Assertions.*;
-// import static org.mockito.Mockito.*;
-// import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
-// import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-// /**
-//  * AuthController Integration Tests
-//  * Full Spring Boot integration tests using MockMvc to test the controller
-//  * in the context of the Spring application.
-//  */
-// @SpringBootTest
-// @AutoConfigureMockMvc
-// class AuthControllerTest {
+class AuthControllerTest {
 
-//     @Autowired
-//     private MockMvc mockMvc;
+	private MockMvc mockMvc;
 
-//     @Autowired
-//     private ObjectMapper objectMapper;
+	private final ObjectMapper objectMapper = new ObjectMapper();
 
-//     @MockBean
-//     private JwtService jwtService;
+	@Mock
+	private AuthService authService;
 
-//     private LoginRequest testLoginRequest;
+	@Mock
+	private JwtService jwtService;
 
-//     @BeforeEach
-//     void setUp() {
-//         // Setup test data
-//         testLoginRequest = new LoginRequest();
-//         testLoginRequest.setUsername("jdoe");
-//         testLoginRequest.setPassword("password123");
-//     }
+	@BeforeEach
+	void setUp() {
+		MockitoAnnotations.openMocks(this);
 
-//     @Test
-//     void testLogin_ValidCredentials_ReturnsToken() throws Exception {
-//         // Arrange
-//         String expectedToken = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...";
-//         when(jwtService.generateToken("jdoe")).thenReturn(expectedToken);
+		AuthController controller = new AuthController(authService, jwtService);
+		LocalValidatorFactoryBean validator = new LocalValidatorFactoryBean();
+		validator.afterPropertiesSet();
 
-//         // Act & Assert
-//         mockMvc.perform(post("/api/auth/login")
-//                 .contentType(MediaType.APPLICATION_JSON)
-//                 .content(objectMapper.writeValueAsString(testLoginRequest)))
-//                 .andExpect(status().isOk())
-//                 .andExpect(jsonPath("$.token").value(expectedToken));
+		mockMvc = MockMvcBuilders.standaloneSetup(controller)
+			.setControllerAdvice(new GlobalExceptionHandler())
+			.setValidator(validator)
+			.build();
+	}
 
-//         verify(jwtService, times(1)).generateToken("jdoe");
-//     }
+	@Test
+	void login_ValidCredentials_ReturnsToken() throws Exception {
+		LoginRequest request = new LoginRequest();
+		request.setEmail("jdoe@example.com");
+		request.setPassword("password123");
 
-//     @Test
-//     void testLogin_CallsJwtService() throws Exception {
-//         // Arrange
-//         when(jwtService.generateToken("jdoe")).thenReturn("token");
+		when(authService.authenticateAndIssueToken(any(LoginRequest.class))).thenReturn("jwt-token");
 
-//         // Act & Assert
-//         mockMvc.perform(post("/api/auth/login")
-//                 .contentType(MediaType.APPLICATION_JSON)
-//                 .content(objectMapper.writeValueAsString(testLoginRequest)))
-//                 .andExpect(status().isOk());
+		mockMvc.perform(post("/api/auth/login")
+				.contentType(MediaType.APPLICATION_JSON)
+				.content(objectMapper.writeValueAsString(request)))
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.token").value("jwt-token"));
 
-//         verify(jwtService, times(1)).generateToken("jdoe");
-//     }
+		verify(authService, times(1)).authenticateAndIssueToken(any(LoginRequest.class));
+	}
 
-//     @Test
-//     void testValidateToken_ValidToken_ReturnsTrue() throws Exception {
-//         // Arrange
-//         when(jwtService.validateToken("valid.token")).thenReturn(true);
+	@Test
+	void login_InvalidPayload_ReturnsBadRequest() throws Exception {
+		LoginRequest request = new LoginRequest();
+		request.setPassword("password123");
 
-//         // Act & Assert
-//         mockMvc.perform(get("/api/auth/validate")
-//                 .header("Authorization", "Bearer valid.token"))
-//                 .andExpect(status().isOk());
+		mockMvc.perform(post("/api/auth/login")
+				.contentType(MediaType.APPLICATION_JSON)
+				.content(objectMapper.writeValueAsString(request)))
+			.andExpect(status().isBadRequest());
 
-//         verify(jwtService, times(1)).validateToken("valid.token");
-//     }
+		verify(authService, never()).authenticateAndIssueToken(any(LoginRequest.class));
+	}
 
-//     @Test
-//     void testValidateToken_InvalidToken_ReturnsFalse() throws Exception {
-//         // Arrange
-//         when(jwtService.validateToken("invalid.token")).thenReturn(false);
+	@Test
+	void login_InvalidCredentials_ReturnsUnauthorized() throws Exception {
+		LoginRequest request = new LoginRequest();
+		request.setEmail("jdoe@example.com");
+		request.setPassword("wrong-pass");
 
-//         // Act & Assert
-//         mockMvc.perform(get("/api/auth/validate")
-//                 .header("Authorization", "Bearer invalid.token"))
-//                 .andExpect(status().isUnauthorized());
-//     }
+		when(authService.authenticateAndIssueToken(any(LoginRequest.class)))
+			.thenThrow(new ApiException(ErrorCode.INVALID_CREDENTIALS));
 
-//     @Test
-//     void testValidateToken_MissingBearerPrefix_ReturnsFalse() throws Exception {
-//         // Arrange
-//         String authHeaderWithoutBearer = "token-without-bearer";
+		mockMvc.perform(post("/api/auth/login")
+				.contentType(MediaType.APPLICATION_JSON)
+				.content(objectMapper.writeValueAsString(request)))
+			.andExpect(status().isUnauthorized())
+			.andExpect(jsonPath("$.errorCode").value("ERR_042"));
+	}
 
-//         // Act & Assert
-//         mockMvc.perform(get("/api/auth/validate")
-//                 .header("Authorization", authHeaderWithoutBearer))
-//                 .andExpect(status().isUnauthorized());
+	@Test
+	void register_ValidPayload_CreatesUser() throws Exception {
+				String requestJson = """
+						{
+							"email": "new.user@example.com",
+							"password": "StrongPassword123!",
+							"firstName": "New",
+							"lastName": "User",
+							"phoneNumber": "5551234567",
+							"taxId": "123456789",
+							"dateOfBirth": "1995-05-10"
+						}
+						""";
 
-//         verify(jwtService, never()).validateToken(any());
-//     }
+		when(authService.register(any(RegisterRequest.class)))
+			.thenReturn(new RegisterResponse(42L, "new.user@example.com", "new.user@example.com"));
 
-//     @Test
-//     void testValidateToken_NullAuthHeader_ReturnsFalse() throws Exception {
-//         // Act & Assert
-//         mockMvc.perform(get("/api/auth/validate"))
-//                 .andExpect(status().isUnauthorized());
+		mockMvc.perform(post("/api/auth/register")
+				.contentType(MediaType.APPLICATION_JSON)
+			.content(requestJson))
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.userId").value(42))
+			.andExpect(jsonPath("$.email").value("new.user@example.com"))
+			.andExpect(jsonPath("$.username").value("new.user@example.com"));
 
-//         verify(jwtService, never()).validateToken(any());
-//     }
-// }
+		verify(authService, times(1)).register(any(RegisterRequest.class));
+	}
+
+	@Test
+	void register_RandomUsername_IsRejected() throws Exception {
+		String requestJson = """
+				{
+					"email": "new.user@example.com",
+					"username": "random-user",
+					"password": "StrongPassword123!",
+					"firstName": "New",
+					"lastName": "User",
+					"phoneNumber": "5551234567",
+					"dateOfBirth": "1995-05-10"
+				}
+				""";
+
+		mockMvc.perform(post("/api/auth/register")
+				.contentType(MediaType.APPLICATION_JSON)
+				.content(requestJson))
+			.andExpect(status().isBadRequest());
+
+		verify(authService, never()).register(any(RegisterRequest.class));
+	}
+
+	@Test
+	void validateToken_WithBearerHeader_ReturnsTrue() throws Exception {
+		when(jwtService.validateToken("valid.token")).thenReturn(true);
+
+		mockMvc.perform(get("/api/auth/validate")
+				.header("Authorization", "Bearer valid.token"))
+			.andExpect(status().isOk())
+			.andExpect(content().string("true"));
+
+		verify(jwtService, times(1)).validateToken("valid.token");
+	}
+
+	@Test
+	void validateToken_WithoutBearerPrefix_ReturnsFalse() throws Exception {
+		mockMvc.perform(get("/api/auth/validate")
+				.header("Authorization", "token-without-bearer"))
+			.andExpect(status().isOk())
+			.andExpect(content().string("false"));
+
+		verify(jwtService, never()).validateToken(any());
+	}
+}
