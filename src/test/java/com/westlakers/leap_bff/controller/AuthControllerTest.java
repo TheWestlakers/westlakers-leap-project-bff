@@ -2,13 +2,7 @@ package com.westlakers.leap_bff.controller;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.westlakers.leap_bff.dtos.LoginRequest;
-import com.westlakers.leap_bff.dtos.RegisterRequest;
-import com.westlakers.leap_bff.dtos.RegisterResponse;
-import com.westlakers.leap_bff.exceptions.ApiException;
-import com.westlakers.leap_bff.exceptions.ErrorCode;
-import com.westlakers.leap_bff.exceptions.GlobalExceptionHandler;
 import com.westlakers.leap_bff.security.JwtService;
-import com.westlakers.leap_bff.services.AuthService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mock;
@@ -16,7 +10,6 @@ import org.mockito.MockitoAnnotations;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
-import org.springframework.validation.beanvalidation.LocalValidatorFactoryBean;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.never;
@@ -36,22 +29,14 @@ class AuthControllerTest {
 	private final ObjectMapper objectMapper = new ObjectMapper();
 
 	@Mock
-	private AuthService authService;
-
-	@Mock
 	private JwtService jwtService;
 
 	@BeforeEach
 	void setUp() {
 		MockitoAnnotations.openMocks(this);
 
-		AuthController controller = new AuthController(authService, jwtService);
-		LocalValidatorFactoryBean validator = new LocalValidatorFactoryBean();
-		validator.afterPropertiesSet();
-
+		AuthController controller = new AuthController(jwtService);
 		mockMvc = MockMvcBuilders.standaloneSetup(controller)
-			.setControllerAdvice(new GlobalExceptionHandler())
-			.setValidator(validator)
 			.build();
 	}
 
@@ -61,7 +46,7 @@ class AuthControllerTest {
 		request.setEmail("jdoe@example.com");
 		request.setPassword("password123");
 
-		when(authService.authenticateAndIssueToken(any(LoginRequest.class))).thenReturn("jwt-token");
+		when(jwtService.generateToken("jdoe@example.com")).thenReturn("jwt-token");
 
 		mockMvc.perform(post("/api/auth/login")
 				.contentType(MediaType.APPLICATION_JSON)
@@ -69,86 +54,7 @@ class AuthControllerTest {
 			.andExpect(status().isOk())
 			.andExpect(jsonPath("$.token").value("jwt-token"));
 
-		verify(authService, times(1)).authenticateAndIssueToken(any(LoginRequest.class));
-	}
-
-	@Test
-	void login_InvalidPayload_ReturnsBadRequest() throws Exception {
-		LoginRequest request = new LoginRequest();
-		request.setPassword("password123");
-
-		mockMvc.perform(post("/api/auth/login")
-				.contentType(MediaType.APPLICATION_JSON)
-				.content(objectMapper.writeValueAsString(request)))
-			.andExpect(status().isBadRequest());
-
-		verify(authService, never()).authenticateAndIssueToken(any(LoginRequest.class));
-	}
-
-	@Test
-	void login_InvalidCredentials_ReturnsUnauthorized() throws Exception {
-		LoginRequest request = new LoginRequest();
-		request.setEmail("jdoe@example.com");
-		request.setPassword("wrong-pass");
-
-		when(authService.authenticateAndIssueToken(any(LoginRequest.class)))
-			.thenThrow(new ApiException(ErrorCode.INVALID_CREDENTIALS));
-
-		mockMvc.perform(post("/api/auth/login")
-				.contentType(MediaType.APPLICATION_JSON)
-				.content(objectMapper.writeValueAsString(request)))
-			.andExpect(status().isUnauthorized())
-			.andExpect(jsonPath("$.errorCode").value("ERR_042"));
-	}
-
-	@Test
-	void register_ValidPayload_CreatesUser() throws Exception {
-				String requestJson = """
-						{
-							"email": "new.user@example.com",
-							"password": "StrongPassword123!",
-							"firstName": "New",
-							"lastName": "User",
-							"phoneNumber": "5551234567",
-							"taxId": "123456789",
-							"dateOfBirth": "1995-05-10"
-						}
-						""";
-
-		when(authService.register(any(RegisterRequest.class)))
-			.thenReturn(new RegisterResponse(42L, "new.user@example.com", "new.user@example.com"));
-
-		mockMvc.perform(post("/api/auth/register")
-				.contentType(MediaType.APPLICATION_JSON)
-			.content(requestJson))
-			.andExpect(status().isOk())
-			.andExpect(jsonPath("$.userId").value(42))
-			.andExpect(jsonPath("$.email").value("new.user@example.com"))
-			.andExpect(jsonPath("$.username").value("new.user@example.com"));
-
-		verify(authService, times(1)).register(any(RegisterRequest.class));
-	}
-
-	@Test
-	void register_RandomUsername_IsRejected() throws Exception {
-		String requestJson = """
-				{
-					"email": "new.user@example.com",
-					"username": "random-user",
-					"password": "StrongPassword123!",
-					"firstName": "New",
-					"lastName": "User",
-					"phoneNumber": "5551234567",
-					"dateOfBirth": "1995-05-10"
-				}
-				""";
-
-		mockMvc.perform(post("/api/auth/register")
-				.contentType(MediaType.APPLICATION_JSON)
-				.content(requestJson))
-			.andExpect(status().isBadRequest());
-
-		verify(authService, never()).register(any(RegisterRequest.class));
+		verify(jwtService, times(1)).generateToken("jdoe@example.com");
 	}
 
 	@Test

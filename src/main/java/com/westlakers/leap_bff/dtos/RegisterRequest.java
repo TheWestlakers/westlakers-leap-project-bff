@@ -3,11 +3,6 @@ package com.westlakers.leap_bff.dtos;
 import lombok.Data;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.NotNull;
-import jakarta.validation.constraints.Null;
-import jakarta.validation.constraints.Past;
-
-import java.time.LocalDate;
 
 @Data
 public class RegisterRequest {
@@ -17,9 +12,6 @@ public class RegisterRequest {
 
     @NotBlank(message = "Password is required")
     private String password;
-
-    @Null(message = "Username is not accepted; use email")
-    private String username;
 
     @NotBlank(message = "First name is required")
     private String firstName;
@@ -32,7 +24,4 @@ public class RegisterRequest {
 
     private String taxId;
 
-    @NotNull(message = "Date of birth is required")
-    @Past(message = "Date of birth must be in the past")
-    private LocalDate dateOfBirth;
 }
