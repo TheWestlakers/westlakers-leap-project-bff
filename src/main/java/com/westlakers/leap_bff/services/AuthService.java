@@ -1,5 +1,7 @@
 package com.westlakers.leap_bff.services;
 
+import com.westlakers.leap_bff.dtos.AccountDTO;
+import com.westlakers.leap_bff.dtos.CurrentUserResponse;
 import com.westlakers.leap_bff.dtos.LoginRequest;
 import com.westlakers.leap_bff.dtos.RegisterRequest;
 import com.westlakers.leap_bff.dtos.RegisterResponse;
@@ -7,6 +9,8 @@ import com.westlakers.leap_bff.entities.User;
 import com.westlakers.leap_bff.entities.UserCredentials;
 import com.westlakers.leap_bff.exceptions.ApiException;
 import com.westlakers.leap_bff.exceptions.ErrorCode;
+import com.westlakers.leap_bff.mappers.AccountMapper;
+import com.westlakers.leap_bff.mappers.AccountStatusMapper;
 import com.westlakers.leap_bff.mappers.UserCredentialsMapper;
 import com.westlakers.leap_bff.mappers.UserMapper;
 import com.westlakers.leap_bff.security.JwtService;
@@ -16,6 +20,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Locale;
 
 @Service
@@ -27,6 +32,8 @@ public class AuthService {
 
     private final UserMapper userMapper;
     private final UserCredentialsMapper userCredentialsMapper;
+    private final AccountMapper accountMapper;
+    private final AccountStatusMapper accountStatusMapper;
     private final PasswordEncoder passwordEncoder;
     private final JwtService jwtService;
 
@@ -82,6 +89,31 @@ public class AuthService {
         }
 
         return jwtService.generateToken(credentials.getEmail());
+    }
+
+    @Transactional(readOnly = true)
+    public CurrentUserResponse getCurrentUser(String email) {
+        UserCredentials credentials = userCredentialsMapper.findByEmail(normalizeEmail(email));
+        if (credentials == null || !credentials.isActive()) {
+            throw new ApiException(ErrorCode.UNAUTHORIZED);
+        }
+
+        User user = userMapper.findById(credentials.getUserId());
+        if (user == null) {
+            throw new ApiException(ErrorCode.USER_NOT_FOUND, "User not found with id: " + credentials.getUserId());
+        }
+
+        // A newly registered user may not have an account yet, so return an empty list instead of throwing
+        List<AccountDTO> accounts = accountMapper.findByUserId(user.getUserId()).stream()
+                .map(account -> AccountDTO.fromEntity(account, accountStatusMapper.findById(account.getAccountStatusId())))
+                .toList();
+
+        return new CurrentUserResponse(
+                user.getUserId(),
+                credentials.getEmail(),
+                user.getFirstName(),
+                user.getLastName(),
+                accounts);
     }
 
     private String normalizeEmail(String email) {

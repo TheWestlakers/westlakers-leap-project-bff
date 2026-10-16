@@ -1,6 +1,7 @@
 package com.westlakers.leap_bff.controller;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.westlakers.leap_bff.dtos.CurrentUserResponse;
 import com.westlakers.leap_bff.dtos.LoginRequest;
 import com.westlakers.leap_bff.dtos.RegisterRequest;
 import com.westlakers.leap_bff.dtos.RegisterResponse;
@@ -15,9 +16,12 @@ import org.junit.jupiter.api.Test;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 import org.springframework.http.MediaType;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import org.springframework.validation.beanvalidation.LocalValidatorFactoryBean;
+
+import java.util.List;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.never;
@@ -199,5 +203,26 @@ class AuthControllerTest {
 			.andExpect(content().string("false"));
 
 		verify(jwtService, never()).validateToken(any());
+	}
+
+	@Test
+	void me_Authenticated_ReturnsCurrentUser() throws Exception {
+		when(authService.getCurrentUser("jdoe@example.com"))
+			.thenReturn(new CurrentUserResponse(5L, "jdoe@example.com", "John", "Doe", List.of()));
+
+		mockMvc.perform(get("/api/auth/me")
+				.principal(new UsernamePasswordAuthenticationToken("jdoe@example.com", null, List.of())))
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.userId").value(5))
+			.andExpect(jsonPath("$.firstName").value("John"))
+			.andExpect(jsonPath("$.accounts").isArray());
+	}
+
+	@Test
+	void me_Unauthenticated_ReturnsUnauthorized() throws Exception {
+		mockMvc.perform(get("/api/auth/me"))
+			.andExpect(status().isUnauthorized());
+
+		verify(authService, never()).getCurrentUser(any());
 	}
 }

@@ -1,12 +1,17 @@
 package com.westlakers.leap_bff.services;
 
+import com.westlakers.leap_bff.dtos.CurrentUserResponse;
 import com.westlakers.leap_bff.dtos.LoginRequest;
 import com.westlakers.leap_bff.dtos.RegisterRequest;
 import com.westlakers.leap_bff.dtos.RegisterResponse;
+import com.westlakers.leap_bff.entities.Account;
+import com.westlakers.leap_bff.entities.AccountStatus;
 import com.westlakers.leap_bff.entities.User;
 import com.westlakers.leap_bff.entities.UserCredentials;
 import com.westlakers.leap_bff.exceptions.ApiException;
 import com.westlakers.leap_bff.exceptions.ErrorCode;
+import com.westlakers.leap_bff.mappers.AccountMapper;
+import com.westlakers.leap_bff.mappers.AccountStatusMapper;
 import com.westlakers.leap_bff.mappers.UserCredentialsMapper;
 import com.westlakers.leap_bff.mappers.UserMapper;
 import com.westlakers.leap_bff.security.JwtService;
@@ -18,7 +23,9 @@ import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -37,6 +44,12 @@ class AuthServiceTest {
 
     @Mock
     private UserCredentialsMapper userCredentialsMapper;
+
+    @Mock
+    private AccountMapper accountMapper;
+
+    @Mock
+    private AccountStatusMapper accountStatusMapper;
 
     @Mock
     private PasswordEncoder passwordEncoder;
@@ -162,5 +175,76 @@ class AuthServiceTest {
 
         verify(passwordEncoder, never()).matches(any(), any());
         verify(jwtService, never()).generateToken(any());
+    }
+
+    @Test
+    void getCurrentUser_ActiveUser_ReturnsProfileWithAccounts() {
+        UserCredentials credentials = new UserCredentials();
+        credentials.setUserId(7L);
+        credentials.setEmail("trader@example.com");
+        credentials.setActive(true);
+
+        User user = new User();
+        user.setUserId(7L);
+        user.setFirstName("Jane");
+        user.setLastName("Trader");
+
+        Account account = new Account();
+        account.setAccountId(11L);
+        account.setUserId(7L);
+        account.setAccountStatusId(1L);
+        account.setSettledCash(new BigDecimal("2500.00"));
+
+        AccountStatus status = new AccountStatus();
+        status.setStatusName("ACTIVE");
+
+        when(userCredentialsMapper.findByEmail("trader@example.com")).thenReturn(credentials);
+        when(userMapper.findById(7L)).thenReturn(user);
+        when(accountMapper.findByUserId(7L)).thenReturn(List.of(account));
+        when(accountStatusMapper.findById(1L)).thenReturn(status);
+
+        CurrentUserResponse response = authService.getCurrentUser("  Trader@Example.com ");
+
+        assertEquals(7L, response.getUserId());
+        assertEquals("trader@example.com", response.getEmail());
+        assertEquals("Jane", response.getFirstName());
+        assertEquals("Trader", response.getLastName());
+        assertEquals(1, response.getAccounts().size());
+        assertEquals(11L, response.getAccounts().get(0).getAccountId());
+        assertEquals("ACTIVE", response.getAccounts().get(0).getStatusName());
+    }
+
+    @Test
+    void getCurrentUser_NoAccounts_ReturnsEmptyAccountList() {
+        UserCredentials credentials = new UserCredentials();
+        credentials.setUserId(8L);
+        credentials.setEmail("newuser@example.com");
+        credentials.setActive(true);
+
+        User user = new User();
+        user.setUserId(8L);
+
+        when(userCredentialsMapper.findByEmail("newuser@example.com")).thenReturn(credentials);
+        when(userMapper.findById(8L)).thenReturn(user);
+        when(accountMapper.findByUserId(8L)).thenReturn(List.of());
+
+        CurrentUserResponse response = authService.getCurrentUser("newuser@example.com");
+
+        assertEquals(8L, response.getUserId());
+        assertEquals(0, response.getAccounts().size());
+    }
+
+    @Test
+    void getCurrentUser_InactiveCredentials_ThrowsUnauthorized() {
+        UserCredentials credentials = new UserCredentials();
+        credentials.setUserId(7L);
+        credentials.setActive(false);
+
+        when(userCredentialsMapper.findByEmail("trader@example.com")).thenReturn(credentials);
+
+        ApiException ex = assertThrows(ApiException.class, () -> authService.getCurrentUser("trader@example.com"));
+        assertEquals(ErrorCode.UNAUTHORIZED, ex.getErrorCode());
+
+        verify(userMapper, never()).findById(any());
     }
 }
