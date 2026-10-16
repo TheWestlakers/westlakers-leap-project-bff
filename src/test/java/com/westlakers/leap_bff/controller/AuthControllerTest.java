@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.westlakers.leap_bff.dtos.LoginRequest;
 import com.westlakers.leap_bff.dtos.RegisterRequest;
 import com.westlakers.leap_bff.dtos.RegisterResponse;
+import com.westlakers.leap_bff.dtos.RefreshTokenRequest;
 import com.westlakers.leap_bff.exceptions.ApiException;
 import com.westlakers.leap_bff.exceptions.ErrorCode;
 import com.westlakers.leap_bff.exceptions.GlobalExceptionHandler;
@@ -62,14 +63,41 @@ class AuthControllerTest {
 		request.setPassword("password123");
 
 		when(authService.authenticateAndIssueToken(any(LoginRequest.class))).thenReturn("jwt-token");
+		when(jwtService.generateRefreshToken("jdoe@example.com")).thenReturn("refresh-token");
 
 		mockMvc.perform(post("/api/auth/login")
 				.contentType(MediaType.APPLICATION_JSON)
 				.content(objectMapper.writeValueAsString(request)))
 			.andExpect(status().isOk())
-			.andExpect(jsonPath("$.token").value("jwt-token"));
+			.andExpect(jsonPath("$.token").value("jwt-token"))
+			.andExpect(jsonPath("$.refreshToken").value("refresh-token"));
 
 		verify(authService, times(1)).authenticateAndIssueToken(any(LoginRequest.class));
+	}
+
+	@Test
+	void refresh_ValidRefreshToken_ReturnsAccessToken() throws Exception {
+		when(jwtService.validateRefreshToken("refresh-token")).thenReturn(true);
+		when(jwtService.getEmailFromToken("refresh-token")).thenReturn("jdoe@example.com");
+		when(jwtService.generateToken("jdoe@example.com")).thenReturn("new-jwt-token");
+
+		mockMvc.perform(post("/api/auth/refresh")
+				.contentType(MediaType.APPLICATION_JSON)
+				.content("{\"refreshToken\":\"refresh-token\"}"))
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.token").value("new-jwt-token"))
+			.andExpect(jsonPath("$.refreshToken").value("refresh-token"));
+	}
+
+	@Test
+	void refresh_InvalidRefreshToken_ReturnsUnauthorized() throws Exception {
+		when(jwtService.validateRefreshToken("invalid-token")).thenReturn(false);
+
+		mockMvc.perform(post("/api/auth/refresh")
+				.contentType(MediaType.APPLICATION_JSON)
+				.content("{\"refreshToken\":\"invalid-token\"}"))
+			.andExpect(status().isUnauthorized())
+			.andExpect(jsonPath("$.errorCode").value("ERR_042"));
 	}
 
 	@Test

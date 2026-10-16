@@ -93,6 +93,7 @@ public class SecurityConfig {
                 auth
                     .requestMatchers("/api/auth/login").permitAll()
                     .requestMatchers("/api/auth/register").permitAll()
+                    .requestMatchers("/api/auth/refresh").permitAll()
                     .requestMatchers("/public").permitAll()
                     .requestMatchers("/static/**").permitAll()
                     .requestMatchers("/live-prices.html").permitAll()
