@@ -425,7 +425,7 @@ public class PriceStreamingService {
         String normalizedPeriod = period == null ? "5d" : period.toLowerCase(Locale.ROOT);
         String normalizedInterval = interval == null ? "5m" : interval.toLowerCase(Locale.ROOT);
         if (!Set.of("1d", "5d", "1mo", "6mo", "1y", "3y").contains(normalizedPeriod)
-            || !Set.of("1m", "5m", "15m", "1h", "1d", "1wk").contains(normalizedInterval)) {
+            || !Set.of("1m", "5m", "15m", "1h", "1d", "3d", "1wk").contains(normalizedInterval)) {
             throw new IllegalArgumentException("Unsupported history period or interval");
         }
 
@@ -440,8 +440,9 @@ public class PriceStreamingService {
                 case "3y" -> end - Duration.ofDays(365 * 3L).toSeconds();
                 default -> end - Duration.ofDays(365).toSeconds();
             };
+            String providerInterval = "3d".equals(normalizedInterval) ? "1d" : normalizedInterval;
             String url = "https://query1.finance.yahoo.com/v8/finance/chart/" + normalizedTicker
-                + "?period1=" + start + "&period2=" + end + "&interval=" + normalizedInterval
+                + "?period1=" + start + "&period2=" + end + "&interval=" + providerInterval
                 + "&events=history&includeAdjustedClose=true";
             HttpRequest request = HttpRequest.newBuilder(URI.create(url))
                 .header("User-Agent", "Mozilla/5.0")
@@ -464,11 +465,42 @@ public class PriceStreamingService {
                 point.put("timestamp", Instant.ofEpochSecond(timestamps.get(index).asLong()).toString());
                 history.add(point);
             }
-            return history.size() > limit ? history.subList(history.size() - limit, history.size()) : history;
+            List<Map<String, String>> rangedHistory = "3d".equals(normalizedInterval)
+                ? everyNthPoint(history, 3)
+                : history;
+            return downsampleHistory(rangedHistory, limit);
         } catch (Exception error) {
             log.warn("Yahoo history unavailable for {}: {}", normalizedTicker, error.getMessage());
             return getPriceHistory(normalizedTicker, limit);
         }
+    }
+
+    private List<Map<String, String>> downsampleHistory(List<Map<String, String>> history, int targetCount) {
+        if (targetCount <= 0 || history.size() <= targetCount) {
+            return history;
+        }
+
+        List<Map<String, String>> sampled = new ArrayList<>(targetCount);
+        double step = (double) (history.size() - 1) / (targetCount - 1);
+        for (int index = 0; index < targetCount; index++) {
+            sampled.add(history.get((int) Math.round(index * step)));
+        }
+        return sampled;
+    }
+
+    private List<Map<String, String>> everyNthPoint(List<Map<String, String>> history, int step) {
+        if (history.size() <= 1 || step <= 1) {
+            return history;
+        }
+
+        List<Map<String, String>> sampled = new ArrayList<>();
+        for (int index = 0; index < history.size(); index += step) {
+            sampled.add(history.get(index));
+        }
+        if (sampled.get(sampled.size() - 1) != history.get(history.size() - 1)) {
+            sampled.add(history.get(history.size() - 1));
+        }
+        return sampled;
     }
     
     /**

@@ -30,6 +30,9 @@ import java.util.stream.Collectors;
 @RequestMapping("/api/prices")
 @CrossOrigin(origins = "*", maxAge = 3600)
 public class PriceStreamingController {
+
+    private static final int CHART_POINT_COUNT = 390;
+    private static final int ONE_DAY_POINT_COUNT = 260;
     
     @Autowired
     private PriceStreamingService priceStreamingService;
@@ -391,14 +394,17 @@ public class PriceStreamingController {
             if (ticker == null || ticker.isBlank()) {
                 return ResponseEntity.badRequest().body(Map.of("error", "ticker is required"));
             }
-            List<Map<String, String>> history = priceStreamingService.getMarketHistory(ticker, period, interval, limit);
+            String chartInterval = chartIntervalFor(period);
+            int chartPointCount = chartPointCountFor(period);
+            List<Map<String, String>> history = priceStreamingService.getMarketHistory(
+                ticker, period, chartInterval, chartPointCount);
             
             return ResponseEntity.ok(Map.of(
                 "timestamp", new Date().toString(),
-                "limit", limit,
+                "limit", chartPointCount,
                 "ticker", ticker == null ? "ALL" : ticker.toUpperCase(Locale.ROOT),
                 "period", period,
-                "interval", interval,
+                "interval", chartInterval,
                 "count", history.size(),
                 "history", history
             ));
@@ -409,5 +415,21 @@ public class PriceStreamingController {
                 "message", e.getMessage()
             ));
         }
+    }
+
+    private String chartIntervalFor(String period) {
+        return switch (period == null ? "5d" : period.toLowerCase(Locale.ROOT)) {
+            case "1d" -> "1m";
+            case "5d" -> "15m";
+            case "1mo" -> "1h";
+            case "6mo" -> "1d";
+            case "1y" -> "1d";
+            case "3y" -> "1wk";
+            default -> throw new IllegalArgumentException("Unsupported history period");
+        };
+    }
+
+    private int chartPointCountFor(String period) {
+        return "1d".equalsIgnoreCase(period) ? ONE_DAY_POINT_COUNT : CHART_POINT_COUNT;
     }
 }
