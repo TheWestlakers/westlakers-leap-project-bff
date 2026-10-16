@@ -77,6 +77,37 @@ class JwtServiceTest {
     }
 
     @Test
+    void testTokenExpirationPolicies() {
+        long before = System.currentTimeMillis();
+        String accessToken = jwtService.generateToken(testUsername);
+        String refreshToken = jwtService.generateRefreshToken(testUsername);
+        long after = System.currentTimeMillis();
+        long timestampToleranceMs = 1000L;
+
+        SecretKey key = Keys.hmacShaKeyFor(testSecret.getBytes());
+        Date accessExpiration = Jwts.parser().verifyWith(key).build()
+            .parseSignedClaims(accessToken).getPayload().getExpiration();
+        Date refreshExpiration = Jwts.parser().verifyWith(key).build()
+            .parseSignedClaims(refreshToken).getPayload().getExpiration();
+
+        assertTrue(accessExpiration.getTime() - before >= 15 * 60 * 1000L - timestampToleranceMs);
+        assertTrue(accessExpiration.getTime() - after <= 15 * 60 * 1000L);
+        assertTrue(refreshExpiration.getTime() - before >= 7 * 24 * 60 * 60 * 1000L - timestampToleranceMs);
+        assertTrue(refreshExpiration.getTime() - after <= 7 * 24 * 60 * 60 * 1000L);
+    }
+
+    @Test
+    void testOnlyRefreshTokensPassRefreshValidation() {
+        String accessToken = jwtService.generateToken(testUsername);
+        String refreshToken = jwtService.generateRefreshToken(testUsername);
+
+        assertFalse(jwtService.validateRefreshToken(accessToken));
+        assertTrue(jwtService.validateRefreshToken(refreshToken));
+        assertTrue(jwtService.validateToken(accessToken));
+        assertFalse(jwtService.validateToken(refreshToken));
+    }
+
+    @Test
     void testValidateToken_ValidToken_ReturnsTrue() {
         // Act
         boolean isValid = jwtService.validateToken(validToken);

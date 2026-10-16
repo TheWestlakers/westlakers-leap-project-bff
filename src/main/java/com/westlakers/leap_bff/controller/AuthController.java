@@ -15,6 +15,9 @@ import com.westlakers.leap_bff.services.AuthService;
 import com.westlakers.leap_bff.security.JwtService;
 import com.westlakers.leap_bff.dtos.LoginRequest;
 import com.westlakers.leap_bff.dtos.LoginResponse;
+import com.westlakers.leap_bff.dtos.RefreshTokenRequest;
+import com.westlakers.leap_bff.exceptions.ApiException;
+import com.westlakers.leap_bff.exceptions.ErrorCode;
 
 @RequiredArgsConstructor
 @RestController
@@ -26,7 +29,16 @@ public class AuthController {
     @PostMapping("/login")
     public LoginResponse login(@Valid @RequestBody LoginRequest request) {
         String token = authService.authenticateAndIssueToken(request);
-        return new LoginResponse(token);
+        return new LoginResponse(token, jwtService.generateRefreshToken(request.getEmail()));
+    }
+
+    @PostMapping("/refresh")
+    public LoginResponse refresh(@Valid @RequestBody RefreshTokenRequest request) {
+        if (!jwtService.validateRefreshToken(request.getRefreshToken())) {
+            throw new ApiException(ErrorCode.INVALID_CREDENTIALS);
+        }
+        String email = jwtService.getEmailFromToken(request.getRefreshToken());
+        return new LoginResponse(jwtService.generateToken(email), request.getRefreshToken());
     }
 
     @PostMapping("/register")
