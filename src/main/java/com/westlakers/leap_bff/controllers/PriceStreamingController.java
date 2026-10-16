@@ -8,6 +8,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.*;
+import java.util.stream.Collectors;
 
 /**
  * REST Controller for real-time price data streaming.
@@ -29,6 +30,9 @@ import java.util.*;
 @RequestMapping("/api/prices")
 @CrossOrigin(origins = "*", maxAge = 3600)
 public class PriceStreamingController {
+
+    private static final int CHART_POINT_COUNT = 390;
+    private static final int ONE_DAY_POINT_COUNT = 260;
     
     @Autowired
     private PriceStreamingService priceStreamingService;
@@ -42,7 +46,8 @@ public class PriceStreamingController {
     @GetMapping("/latest/{ticker}")
     public ResponseEntity<?> getLatestPrice(@PathVariable String ticker) {
         try {
-            Optional<PriceDTO> price = priceStreamingService.getLatestPrice(ticker);
+            String registeredTicker = priceStreamingService.registerTicker(ticker);
+            Optional<PriceDTO> price = priceStreamingService.getLatestPrice(registeredTicker);
             
             if (price.isPresent()) {
                 return ResponseEntity.ok(price.get());
@@ -53,6 +58,11 @@ public class PriceStreamingController {
                     "timestamp", new Date().toString()
                 ));
             }
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(Map.of(
+                "error", "Invalid ticker",
+                "message", e.getMessage()
+            ));
         } catch (Exception e) {
             log.error("Error fetching latest price for {}: {}", ticker, e.getMessage());
             return ResponseEntity.status(500).body(Map.of(
@@ -68,9 +78,20 @@ public class PriceStreamingController {
      * @return Map of ticker -> PriceDTO
      */
     @GetMapping("/all")
-    public ResponseEntity<?> getAllPrices() {
+    public ResponseEntity<?> getAllPrices(@RequestParam(value = "symbols", required = false) List<String> symbols) {
         try {
-            Set<String> tickers = priceStreamingService.getAvailableTickers();
+            Set<String> tickers;
+
+            if (symbols != null && !symbols.isEmpty()) {
+                tickers = symbols.stream()
+                    .filter(Objects::nonNull)
+                    .map(String::trim)
+                    .filter(symbol -> !symbol.isEmpty())
+                    .map(String::toUpperCase)
+                    .collect(Collectors.toCollection(LinkedHashSet::new));
+            } else {
+                tickers = priceStreamingService.getAvailableTickers();
+            }
             
             if (tickers.isEmpty()) {
                 return ResponseEntity.ok(Map.of(
@@ -93,6 +114,156 @@ public class PriceStreamingController {
             log.error("Error fetching all prices: {}", e.getMessage());
             return ResponseEntity.status(500).body(Map.of(
                 "error", "Failed to fetch prices",
+                "message", e.getMessage()
+            ));
+        }
+    }
+
+    @PostMapping("/tickers/register")
+    public ResponseEntity<?> registerTickers(@RequestBody Map<String, Object> payload) {
+        try {
+            Set<String> registered = new LinkedHashSet<>();
+
+            Object singleTicker = payload.get("ticker");
+            if (singleTicker instanceof String) {
+                String ticker = priceStreamingService.registerTicker((String) singleTicker);
+                if (ticker != null) {
+                    registered.add(ticker);
+                }
+            }
+
+            Object symbols = payload.get("tickers");
+            if (symbols instanceof List<?>) {
+                List<String> tickerList = ((List<?>) symbols).stream()
+                    .filter(String.class::isInstance)
+                    .map(String.class::cast)
+                    .collect(Collectors.toList());
+                registered.addAll(priceStreamingService.registerTickers(tickerList));
+            }
+
+            return ResponseEntity.ok(Map.of(
+                "count", registered.size(),
+                "tickers", new ArrayList<>(registered)
+            ));
+        } catch (Exception e) {
+            log.error("Error registering tickers: {}", e.getMessage());
+            return ResponseEntity.badRequest().body(Map.of(
+                "error", "Failed to register tickers",
+                "message", e.getMessage()
+            ));
+        }
+    }
+
+    @PostMapping("/tickers/unregister")
+    public ResponseEntity<?> unregisterTicker(@RequestBody Map<String, String> payload) {
+        try {
+            String ticker = payload.get("ticker");
+            if (ticker == null || ticker.trim().isEmpty()) {
+                return ResponseEntity.badRequest().body(Map.of(
+                    "error", "Ticker is required"
+                ));
+            }
+
+            String removed = priceStreamingService.unregisterTicker(ticker);
+            return ResponseEntity.ok(Map.of("ticker", removed, "status", "removed"));
+        } catch (Exception e) {
+            log.error("Error unregistering ticker: {}", e.getMessage());
+            return ResponseEntity.badRequest().body(Map.of(
+                "error", "Failed to unregister ticker",
+                "message", e.getMessage()
+            ));
+        }
+    }
+
+    @PostMapping("/tickers/watchlist/sync")
+    public ResponseEntity<?> syncWatchlist(@RequestBody Map<String, Object> payload) {
+        try {
+            Object clientIdValue = payload.get("clientId");
+            if (!(clientIdValue instanceof String clientId) || clientId.trim().isEmpty()) {
+                return ResponseEntity.badRequest().body(Map.of(
+                    "error", "clientId is required"
+                ));
+            }
+
+            Object symbols = payload.get("tickers");
+            List<String> tickerList = new ArrayList<>();
+            if (symbols instanceof List<?>) {
+                tickerList = ((List<?>) symbols).stream()
+                    .filter(String.class::isInstance)
+                    .map(String.class::cast)
+                    .collect(Collectors.toList());
+            }
+
+            Set<String> synced = priceStreamingService.syncWatchlist(clientId, tickerList);
+            return ResponseEntity.ok(Map.of(
+                "count", synced.size(),
+                "tickers", new ArrayList<>(synced)
+            ));
+        } catch (Exception e) {
+            log.error("Error syncing watchlist: {}", e.getMessage());
+            return ResponseEntity.badRequest().body(Map.of(
+                "error", "Failed to sync watchlist",
+                "message", e.getMessage()
+            ));
+        }
+    }
+
+    @PostMapping("/tickers/focus")
+    public ResponseEntity<?> focusTicker(@RequestBody Map<String, String> payload) {
+        try {
+            String clientId = payload.get("clientId");
+            String ticker = payload.get("ticker");
+            if (clientId == null || clientId.trim().isEmpty() || ticker == null || ticker.trim().isEmpty()) {
+                return ResponseEntity.badRequest().body(Map.of(
+                    "error", "clientId and ticker are required"
+                ));
+            }
+
+            String focused = priceStreamingService.focusTicker(clientId, ticker);
+            return ResponseEntity.ok(Map.of("ticker", focused, "status", "focused"));
+        } catch (Exception e) {
+            log.error("Error focusing ticker: {}", e.getMessage());
+            return ResponseEntity.badRequest().body(Map.of(
+                "error", "Failed to focus ticker",
+                "message", e.getMessage()
+            ));
+        }
+    }
+
+    @PostMapping("/tickers/unfocus")
+    public ResponseEntity<?> unfocusTicker(@RequestBody Map<String, String> payload) {
+        try {
+            String clientId = payload.get("clientId");
+            String ticker = payload.get("ticker");
+            if (clientId == null || clientId.trim().isEmpty() || ticker == null || ticker.trim().isEmpty()) {
+                return ResponseEntity.badRequest().body(Map.of(
+                    "error", "clientId and ticker are required"
+                ));
+            }
+
+            String unfocused = priceStreamingService.unfocusTicker(clientId, ticker);
+            return ResponseEntity.ok(Map.of("ticker", unfocused, "status", "unfocused"));
+        } catch (Exception e) {
+            log.error("Error unfocusing ticker: {}", e.getMessage());
+            return ResponseEntity.badRequest().body(Map.of(
+                "error", "Failed to unfocus ticker",
+                "message", e.getMessage()
+            ));
+        }
+    }
+
+    @GetMapping("/tickers/watchlist")
+    public ResponseEntity<?> getClientWatchlist(@RequestParam("clientId") String clientId) {
+        try {
+            Set<String> tickers = priceStreamingService.getClientWatchlist(clientId);
+            return ResponseEntity.ok(Map.of(
+                "count", tickers.size(),
+                "tickers", new ArrayList<>(tickers)
+            ));
+        } catch (Exception e) {
+            log.error("Error fetching client watchlist: {}", e.getMessage());
+            return ResponseEntity.badRequest().body(Map.of(
+                "error", "Failed to fetch watchlist",
                 "message", e.getMessage()
             ));
         }
@@ -214,13 +385,26 @@ public class PriceStreamingController {
      * @return List of recent price records
      */
     @GetMapping("/history")
-    public ResponseEntity<?> getPriceHistory(@RequestParam(defaultValue = "10") int limit) {
+    public ResponseEntity<?> getPriceHistory(
+            @RequestParam(required = false) String ticker,
+            @RequestParam(defaultValue = "10") int limit,
+            @RequestParam(defaultValue = "5d") String period,
+            @RequestParam(defaultValue = "5m") String interval) {
         try {
-            List<Map<String, String>> history = priceStreamingService.getPriceHistory(limit);
+            if (ticker == null || ticker.isBlank()) {
+                return ResponseEntity.badRequest().body(Map.of("error", "ticker is required"));
+            }
+            String chartInterval = chartIntervalFor(period);
+            int chartPointCount = chartPointCountFor(period);
+            List<Map<String, String>> history = priceStreamingService.getMarketHistory(
+                ticker, period, chartInterval, chartPointCount);
             
             return ResponseEntity.ok(Map.of(
                 "timestamp", new Date().toString(),
-                "limit", limit,
+                "limit", chartPointCount,
+                "ticker", ticker == null ? "ALL" : ticker.toUpperCase(Locale.ROOT),
+                "period", period,
+                "interval", chartInterval,
                 "count", history.size(),
                 "history", history
             ));
@@ -231,5 +415,21 @@ public class PriceStreamingController {
                 "message", e.getMessage()
             ));
         }
+    }
+
+    private String chartIntervalFor(String period) {
+        return switch (period == null ? "5d" : period.toLowerCase(Locale.ROOT)) {
+            case "1d" -> "1m";
+            case "5d" -> "15m";
+            case "1mo" -> "1h";
+            case "6mo" -> "1d";
+            case "1y" -> "1d";
+            case "3y" -> "1wk";
+            default -> throw new IllegalArgumentException("Unsupported history period");
+        };
+    }
+
+    private int chartPointCountFor(String period) {
+        return "1d".equalsIgnoreCase(period) ? ONE_DAY_POINT_COUNT : CHART_POINT_COUNT;
     }
 }

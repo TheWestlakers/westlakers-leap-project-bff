@@ -17,11 +17,13 @@ Redis Data Structure:
 
 import redis
 import yfinance as yf
+import asyncio
 import time
 import json
 import logging
+from logging.handlers import RotatingFileHandler
 from datetime import datetime
-from typing import List, Dict, Any, Optional
+from typing import List, Dict, Any, Optional, Set
 from pathlib import Path
 import signal
 import sys
@@ -33,11 +35,20 @@ logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
     handlers=[
-        logging.FileHandler('live_price_streaming.log'),
+        RotatingFileHandler(
+            'live_price_streaming.log',
+            maxBytes=256 * 1024,
+            backupCount=1
+        ),
         logging.StreamHandler(sys.stdout)
     ]
 )
 logger = logging.getLogger(__name__)
+
+ACTIVE_TICKERS_SET = 'prices:tickers:active'
+WATCHLIST_TICKERS_SET = 'prices:tickers:watchlist'
+FOCUS_TICKERS_SET = 'prices:tickers:focus'
+FOCUS_LEASE_KEY_PREFIX = 'prices:focus:lease:'
 
 
 class LivePriceStreamer:
@@ -49,8 +60,9 @@ class LivePriceStreamer:
         redis_port: int = 6379,
         redis_db: int = 0,
         tickers: Optional[List[str]] = None,
-        polling_interval: float = 3.0,
-        stagger_interval: float = 1.0
+        polling_interval: float = 1.0,
+        stagger_interval: float = 1.0,
+        focus_polling_interval: float = 1.0
     ):
         """
         Initialize the live price streamer
@@ -68,9 +80,13 @@ class LivePriceStreamer:
         self.redis_db = redis_db
         self.polling_interval = polling_interval
         self.stagger_interval = stagger_interval
+        self.focus_polling_interval = focus_polling_interval
         self.tickers = tickers or ['AAPL', 'MSFT', 'GOOGL', 'AMZN', 'TSLA']
+        self.watchlist_tickers: Set[str] = set(self.tickers)
+        self.focused_tickers: Set[str] = set()
         self.redis_client: Optional[redis.Redis] = None
         self.running = False
+        self.live_connection = None
         
         # Staggered fetching setup
         self.ticker_slots: Dict[float, List[str]] = {}  # time_offset -> [tickers]
@@ -124,7 +140,8 @@ class LivePriceStreamer:
         
         This ensures all tickers are fetched once per cycle with overlapping calls.
         """
-        num_slots = int(self.polling_interval / self.stagger_interval)
+        self.ticker_slots.clear()
+        num_slots = max(1, int(self.polling_interval / self.stagger_interval))
         
         for i, ticker in enumerate(self.tickers):
             slot_offset = (i % num_slots) * self.stagger_interval
@@ -133,6 +150,149 @@ class LivePriceStreamer:
             self.ticker_slots[slot_offset].append(ticker)
         
         logger.info(f"Assigned {len(self.tickers)} tickers to {num_slots} time slots")
+
+    def refresh_tickers_from_redis(self):
+        """Reload watchlist and focused ticker symbols from Redis."""
+        if not self.redis_client:
+            return
+
+        try:
+            watchlist = self.redis_client.smembers(WATCHLIST_TICKERS_SET)
+            focused = self._get_active_focus_tickers()
+
+            normalize = lambda values: {
+                ticker.strip().upper() for ticker in values if ticker and ticker.strip()
+            }
+            normalized_watchlist = normalize(watchlist)
+            normalized_focused = normalize(focused)
+            normalized_watchlist -= normalized_focused
+
+            if normalized_watchlist != self.watchlist_tickers:
+                self.watchlist_tickers = normalized_watchlist
+                self.tickers = sorted(normalized_watchlist)
+                self._assign_tickers_to_slots()
+                logger.info(f"Updated watchlist tickers from Redis: {self.tickers}")
+            if normalized_focused != self.focused_tickers:
+                self.focused_tickers = normalized_focused
+                logger.info(f"Updated focused tickers from Redis: {sorted(self.focused_tickers)}")
+        except Exception as e:
+            logger.warning(f"Failed refreshing tickers from Redis: {e}")
+
+    def _get_active_focus_tickers(self) -> Set[str]:
+        """Read hot symbols from five-minute focus leases, ignoring expired set members."""
+        if not self.redis_client:
+            return set()
+
+        prefix_length = len(FOCUS_LEASE_KEY_PREFIX)
+        focused = set()
+        for key in self.redis_client.scan_iter(match=f'{FOCUS_LEASE_KEY_PREFIX}*'):
+            key_text = key.decode() if isinstance(key, bytes) else key
+            suffix = key_text[prefix_length:]
+            ticker = suffix.split(':', 1)[0]
+            if ticker:
+                focused.add(ticker.upper())
+        return focused
+
+    @staticmethod
+    def _history_value(history, field: str, ticker: str):
+        """Read a value from either yfinance history column layout."""
+        try:
+            if hasattr(history.columns, 'levels'):
+                for key in ((field, ticker), (ticker, field)):
+                    if key in history.columns:
+                        return history[key].dropna().iloc[-1]
+            if field in history.columns:
+                return history[field].dropna().iloc[-1]
+        except (IndexError, KeyError):
+            pass
+        return None
+
+    def fetch_watchlist_batch(self, tickers: Optional[Set[str]] = None) -> Dict[str, Dict[str, Any]]:
+        """Fetch requested prices with one yfinance chart request."""
+        requested_tickers = tickers if tickers is not None else self.watchlist_tickers
+        if not requested_tickers:
+            return {}
+        try:
+            history = yf.Tickers(' '.join(sorted(requested_tickers))).history(
+                period='1d', interval='1m', prepost=True, actions=False,
+                auto_adjust=False, threads=True, group_by='column',
+                progress=False, timeout=10
+            )
+            results = {}
+            for ticker in sorted(requested_tickers):
+                current_price = self._history_value(history, 'Close', ticker)
+                if current_price is not None:
+                    volume = self._history_value(history, 'Volume', ticker)
+                    results[ticker] = {
+                        'ticker': ticker,
+                        'timestamp': datetime.now().isoformat(),
+                        'currentPrice': float(current_price),
+                        'volume': float(volume) if volume is not None else None
+                    }
+            return results
+        except Exception as e:
+            logger.warning(f"Error fetching watchlist batch: {e}")
+            return {}
+
+    def _handle_live_message(self, message: Dict[str, Any]):
+        """Normalize a yfinance websocket message and publish it."""
+        ticker = message.get('id') or message.get('symbol')
+        current_price = message.get('price') or message.get('lastPrice')
+        if not ticker or current_price is None:
+            return
+        previous_close = message.get('previous_close') or message.get('previousClose')
+        price_data = {
+            'ticker': ticker.upper(), 'timestamp': datetime.now().isoformat(),
+            'currentPrice': current_price, 'previousClose': previous_close,
+            'volume': message.get('day_volume') or message.get('volume')
+        }
+        if previous_close:
+            price_data['change'] = round(current_price - previous_close, 2)
+            price_data['changePct'] = round((current_price - previous_close) / previous_close * 100, 2)
+        self.publish_to_redis(price_data)
+
+    def _run_live_connection(self):
+        """Run one async websocket and update its subscriptions in place."""
+        try:
+            asyncio.run(self._run_async_live_connection())
+        except Exception as e:
+            logger.warning(f"Focused live connection stopped: {e}")
+
+    async def _run_async_live_connection(self):
+        """Subscribe and unsubscribe focused symbols without reconnecting."""
+        websocket = yf.AsyncWebSocket(verbose=False)
+        self.live_connection = websocket
+        listener_task = None
+        subscribed: Set[str] = set()
+
+        try:
+            while self.running:
+                desired = set(self.focused_tickers)
+                added = sorted(desired - subscribed)
+                removed = sorted(subscribed - desired)
+
+                if added:
+                    await websocket.subscribe(added)
+                    subscribed.update(added)
+                if removed:
+                    await websocket.unsubscribe(removed)
+                    subscribed.difference_update(removed)
+
+                if subscribed and listener_task is None:
+                    listener_task = asyncio.create_task(
+                        websocket.listen(message_handler=self._handle_live_message)
+                    )
+                if listener_task and listener_task.done():
+                    listener_task.result()
+                    listener_task = None
+
+                await asyncio.sleep(self.focus_polling_interval)
+        finally:
+            if listener_task:
+                listener_task.cancel()
+                await asyncio.gather(listener_task, return_exceptions=True)
+            await websocket.close()
+            self.live_connection = None
     
     def _fetch_ticker_group(
         self,
@@ -174,8 +334,6 @@ class LivePriceStreamer:
                 'timestamp': datetime.now().isoformat(),
                 'currentPrice': current_price,
                 'previousClose': previous_close,
-                'bid': info.get('bid'),
-                'ask': info.get('ask'),
                 'volume': info.get('volume'),
                 'marketCap': info.get('marketCap'),
                 'peRatio': info.get('trailingPE'),
@@ -246,40 +404,14 @@ class LivePriceStreamer:
     
     def poll_once(self):
         """
-        Poll all tickers with staggered starts within the cycle.
-        Tickers are fetched at different time offsets to allow overlapping API calls.
+        Fetch the watchlist in one batched request.
         
         Returns:
             int: Number of successfully fetched prices
         """
-        cycle_start = time.time()
-        results: Dict[str, Optional[Dict[str, Any]]] = {}
-        threads: List[threading.Thread] = []
-        
-        # Launch fetch threads at staggered intervals
-        for slot_offset in sorted(self.ticker_slots.keys()):
-            tickers_for_slot = self.ticker_slots[slot_offset]
-            
-            # Calculate when this slot should start
-            slot_start_time = cycle_start + slot_offset
-            delay = max(0, slot_start_time - time.time())
-            
-            # Create thread to fetch this slot's tickers
-            thread = threading.Thread(
-                target=self._delayed_fetch,
-                args=(delay, tickers_for_slot, results),
-                daemon=True
-            )
-            threads.append(thread)
-            thread.start()
-        
-        # Wait for all fetch threads to complete
-        for thread in threads:
-            thread.join()
-        
-        # Publish all fetched prices to Redis
         successful = 0
-        for ticker, price_data in results.items():
+        active_tickers = self.watchlist_tickers | self.focused_tickers
+        for ticker, price_data in self.fetch_watchlist_batch(active_tickers).items():
             if price_data:
                 self.publish_to_redis(price_data)
                 successful += 1
@@ -288,8 +420,7 @@ class LivePriceStreamer:
                 change_pct = price_data.get('changePct', 'N/A')
                 current_price = price_data.get('currentPrice', 'N/A')
                 logger.info(
-                    f"{ticker}: ${current_price} ({change:+} {change_pct:+}%) "
-                    f"[Bid: ${price_data.get('bid', 'N/A')} | Ask: ${price_data.get('ask', 'N/A')}]"
+                    f"{ticker}: ${current_price} ({change} {change_pct}%)"
                 )
         
         return successful
@@ -328,6 +459,8 @@ class LivePriceStreamer:
             return
         
         self.running = True
+        self.live_thread = threading.Thread(target=self._run_live_connection, daemon=True)
+        self.live_thread.start()
         logger.info(
             f"Starting live price streaming with staggered fetches\n"
             f"  Cycle interval: {self.polling_interval}s\n"
@@ -348,6 +481,8 @@ class LivePriceStreamer:
             while self.running:
                 iteration += 1
                 cycle_start = time.time()
+
+                self.refresh_tickers_from_redis()
                 
                 logger.info(f"--- Cycle #{iteration} [Time: {datetime.now().strftime('%H:%M:%S')}] ---")
                 successful = self.poll_once()
@@ -368,6 +503,8 @@ class LivePriceStreamer:
         
         finally:
             self.running = False
+            if self.live_thread and self.live_thread.is_alive():
+                self.live_thread.join(timeout=self.focus_polling_interval + 1)
             self.disconnect()
             logger.info("Live price streaming stopped")
 
@@ -385,7 +522,7 @@ def main():
     redis_host = os.getenv('REDIS_HOST', 'localhost')
     redis_port = int(os.getenv('REDIS_PORT', 6379))
     redis_db = int(os.getenv('REDIS_DB', 0))
-    polling_interval = float(os.getenv('POLLING_INTERVAL', 3.0))
+    polling_interval = float(os.getenv('POLLING_INTERVAL', 1.0))
     stagger_interval = float(os.getenv('STAGGER_INTERVAL', 1.0))
     
     # Custom tickers can be passed as comma-separated string
