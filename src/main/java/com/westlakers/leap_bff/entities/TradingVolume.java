@@ -15,6 +15,8 @@ import lombok.Setter;
 public class TradingVolume {
     private Long stagingId;
     private Long orderId;
+    private String orderStatusId;
+    private String orderStatus;
     private Long accountId;
     private Integer instrumentId;
     private Long userId;

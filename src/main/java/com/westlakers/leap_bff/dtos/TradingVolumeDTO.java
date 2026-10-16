@@ -15,6 +15,8 @@ import lombok.NoArgsConstructor;
 public class TradingVolumeDTO {
     private Long stagingId;
     private Long orderId;
+    private String orderStatusId;
+    private String orderStatus;
     private Long accountId;
     private Integer instrumentId;
     private Long userId;

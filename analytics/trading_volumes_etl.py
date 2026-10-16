@@ -87,7 +87,11 @@ class TradingVolumesETL:
             if not self._connect_databases():
                 logger.error("Failed to connect to databases")
                 return False
-            
+
+            if not self._ensure_order_status_schema():
+                logger.error("Failed to prepare order status schema")
+                return False
+
             # Calculate date range
             end_date = datetime.now()
             start_date = end_date - timedelta(days=days_back)
@@ -163,6 +167,52 @@ class TradingVolumesETL:
         """Disconnect from both databases"""
         self.source_db.disconnect()
         self.analytics_db.disconnect()
+
+    def _ensure_order_status_schema(self) -> bool:
+        """Apply the order-status schema needed by the staging load."""
+        statements = [
+            """
+            CREATE TABLE IF NOT EXISTS order_status (
+                order_status_id VARCHAR(50) PRIMARY KEY,
+                status_name VARCHAR(50) NOT NULL UNIQUE
+            )
+            """,
+            """
+            INSERT INTO order_status (order_status_id, status_name) VALUES
+                ('1', 'PENDING'),
+                ('2', 'EXECUTED'),
+                ('3', 'CANCELLED'),
+                ('4', 'REJECTED')
+            ON CONFLICT (order_status_id) DO UPDATE
+                SET status_name = EXCLUDED.status_name
+            """,
+            """
+            ALTER TABLE stg_trading_volumes
+                DROP CONSTRAINT IF EXISTS stg_trading_volumes_order_status_id_fkey
+            """,
+            """
+            ALTER TABLE order_status
+                ALTER COLUMN order_status_id TYPE VARCHAR(50)
+                USING order_status_id::VARCHAR
+            """,
+            """
+            ALTER TABLE stg_trading_volumes
+                ADD COLUMN IF NOT EXISTS order_status_id VARCHAR(50)
+            """,
+            """
+            ALTER TABLE stg_trading_volumes
+                ALTER COLUMN order_status_id TYPE VARCHAR(50)
+                USING order_status_id::VARCHAR
+            """,
+            """
+            ALTER TABLE stg_trading_volumes
+                ADD CONSTRAINT stg_trading_volumes_order_status_id_fkey
+                FOREIGN KEY (order_status_id)
+                REFERENCES order_status(order_status_id)
+            """,
+        ]
+
+        return all(self.analytics_db.execute_query(statement) for statement in statements)
     
     def _extract_orders(self, start_date: datetime, end_date: datetime) -> List[Dict[str, Any]]:
         """
@@ -178,6 +228,7 @@ class TradingVolumesETL:
         query = """
             SELECT 
                 o.order_id,
+                o.status as order_status_id,
                 o.account_id,
                 o.instrument_id,
                 o.side,
@@ -225,17 +276,19 @@ class TradingVolumesETL:
         try:
             insert_query = """
                 INSERT INTO stg_trading_volumes 
-                (order_id, account_id, instrument_id, user_id, side, quantity, limit_price, 
+                (order_id, order_status_id, account_id, instrument_id, user_id, side, quantity, limit_price, 
                  executed_at, account_type, first_name, last_name, instrument_code, 
                  instrument_name, instrument_type, client_segment)
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-                ON CONFLICT (order_id) DO NOTHING
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                ON CONFLICT (order_id) DO UPDATE
+                    SET order_status_id = EXCLUDED.order_status_id
             """
             
             count = 0
             for order in orders:
                 params = (
                     order['order_id'],
+                    str(order['order_status_id']),
                     order['account_id'],
                     order['instrument_id'],
                     order['user_id'],
