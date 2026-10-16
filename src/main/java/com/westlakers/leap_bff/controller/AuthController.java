@@ -9,6 +9,9 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestHeader;
 import jakarta.validation.Valid;
+import com.westlakers.leap_bff.dtos.RegisterRequest;
+import com.westlakers.leap_bff.dtos.RegisterResponse;
+import com.westlakers.leap_bff.services.AuthService;
 import com.westlakers.leap_bff.security.JwtService;
 import com.westlakers.leap_bff.dtos.LoginRequest;
 import com.westlakers.leap_bff.dtos.LoginResponse;
@@ -17,12 +20,18 @@ import com.westlakers.leap_bff.dtos.LoginResponse;
 @RestController
 @RequestMapping("/api/auth")
 public class AuthController {
+    private final AuthService authService;
     private final JwtService jwtService;
 
     @PostMapping("/login")
     public LoginResponse login(@Valid @RequestBody LoginRequest request) {
-        String token = jwtService.generateToken(request.getEmail());
+        String token = authService.authenticateAndIssueToken(request);
         return new LoginResponse(token);
+    }
+
+    @PostMapping("/register")
+    public RegisterResponse register(@Valid @RequestBody RegisterRequest request) {
+        return authService.register(request);
     }
 
     @GetMapping("/validate")
