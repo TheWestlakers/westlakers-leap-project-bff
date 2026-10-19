@@ -5,9 +5,13 @@ import com.westlakers.leap_bff.dtos.AccountProfileDTO;
 import com.westlakers.leap_bff.entities.Account;
 import com.westlakers.leap_bff.entities.AccountStatus;
 import com.westlakers.leap_bff.entities.AccountType;
+import com.westlakers.leap_bff.entities.User;
+import com.westlakers.leap_bff.exceptions.ApiException;
+import com.westlakers.leap_bff.exceptions.ErrorCode;
 import com.westlakers.leap_bff.mappers.AccountMapper;
 import com.westlakers.leap_bff.mappers.AccountStatusMapper;
 import com.westlakers.leap_bff.mappers.AccountTypeMapper;
+import com.westlakers.leap_bff.mappers.UserMapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.InjectMocks;
@@ -34,6 +38,9 @@ class AccountServiceTest {
 
     @Mock
     private AccountTypeMapper accountTypeMapper;
+
+    @Mock
+    private UserMapper userMapper;
 
     @InjectMocks
     private AccountService accountService;
@@ -92,12 +99,15 @@ class AccountServiceTest {
     }
 
     @Test
-    void testGetAllAccounts_EmptyList_ThrowsException() {
+    void testGetAllAccounts_EmptyList_ReturnsEmptyList() {
         // Arrange
         when(accountMapper.findAll()).thenReturn(Collections.emptyList());
 
-        // Act & Assert
-        assertThrows(RuntimeException.class, () -> accountService.getAllAccounts());
+        // Act
+        List<AccountDTO> result = accountService.getAllAccounts();
+
+        // Assert
+        assertTrue(result.isEmpty());
     }
 
     @Test
@@ -121,6 +131,7 @@ class AccountServiceTest {
     void testGetAccountsByUserId_Success() {
         // Arrange
         List<Account> accounts = Arrays.asList(testAccount);
+        when(userMapper.findById(1L)).thenReturn(new User());
         when(accountMapper.findByUserId(1L)).thenReturn(accounts);
         when(accountStatusMapper.findById(1L)).thenReturn(testStatus);
         when(accountTypeMapper.findById(1L)).thenReturn(testType);
@@ -135,12 +146,27 @@ class AccountServiceTest {
     }
 
     @Test
-    void testGetAccountsByUserId_NoAccounts_ThrowsException() {
+    void testGetAccountsByUserId_NoAccounts_ReturnsEmptyList() {
         // Arrange
-        when(accountMapper.findByUserId(999L)).thenReturn(Collections.emptyList());
+        when(userMapper.findById(1L)).thenReturn(new User());
+        when(accountMapper.findByUserId(1L)).thenReturn(Collections.emptyList());
+
+        // Act
+        List<AccountDTO> result = accountService.getAccountsByUserId(1L);
+
+        // Assert
+        assertTrue(result.isEmpty());
+    }
+
+    @Test
+    void testGetAccountsByUserId_UserNotFound_ThrowsException() {
+        // Arrange
+        when(userMapper.findById(999L)).thenReturn(null);
 
         // Act & Assert
-        assertThrows(RuntimeException.class, () -> accountService.getAccountsByUserId(999L));
+        ApiException exception = assertThrows(ApiException.class, () -> accountService.getAccountsByUserId(999L));
+        assertEquals(ErrorCode.USER_NOT_FOUND, exception.getErrorCode());
+        verify(accountMapper, never()).findByUserId(any());
     }
 
     @Test

@@ -9,6 +9,7 @@ import org.springframework.transaction.annotation.Transactional;
 import com.westlakers.leap_bff.mappers.AccountMapper;
 import com.westlakers.leap_bff.mappers.AccountStatusMapper;
 import com.westlakers.leap_bff.mappers.AccountTypeMapper;
+import com.westlakers.leap_bff.mappers.UserMapper;
 import com.westlakers.leap_bff.entities.Account;
 import com.westlakers.leap_bff.entities.AccountStatus;
 import com.westlakers.leap_bff.entities.AccountType;
@@ -23,21 +24,20 @@ public class AccountService {
     private final AccountMapper accountMapper;
     private final AccountStatusMapper accountStatusMapper;
     private final AccountTypeMapper accountTypeMapper;
+    private final UserMapper userMapper;
 
     public AccountService(AccountMapper accountMapper, AccountStatusMapper accountStatusMapper,
-                         AccountTypeMapper accountTypeMapper) {
+                         AccountTypeMapper accountTypeMapper, UserMapper userMapper) {
         this.accountMapper = accountMapper;
         this.accountStatusMapper = accountStatusMapper;
         this.accountTypeMapper = accountTypeMapper;
+        this.userMapper = userMapper;
     }
 
     @Transactional(readOnly = true)
     public List<AccountDTO> getAllAccounts() {
         List<Account> accounts = this.accountMapper.findAll();
 
-        if(accounts.size() == 0) {
-            throw new ApiException(ErrorCode.EMPTY_RESULTS);
-        }
         // Convert Account entities to DTOs, fetching status for each account
         return accounts.stream()
                 .map(account -> {
@@ -61,11 +61,13 @@ public class AccountService {
 
     @Transactional(readOnly = true)
     public List<AccountDTO> getAccountsByUserId(Long userId) {
+        // A missing user is a 404; an existing user with no accounts is an empty list
+        if(this.userMapper.findById(userId) == null) {
+            throw new ApiException(ErrorCode.USER_NOT_FOUND, "User not found with id: " + userId);
+        }
+
         List<Account> accounts = this.accountMapper.findByUserId(userId);
 
-        if(accounts.size() == 0) {
-            throw new ApiException(ErrorCode.ACCOUNT_NOT_FOUND, "No accounts found for user id: " + userId);
-        }
         // Convert Account entities to DTOs, fetching status for each account
         return accounts.stream()
                 .map(account -> {

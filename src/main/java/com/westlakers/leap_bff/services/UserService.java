@@ -39,10 +39,6 @@ public class UserService {
     @Transactional(readOnly = true)
     public List<UserDTO> getAllUsers() {
         List<User> users = this.userMapper.findAll();
-        
-        if(users.isEmpty()) {
-            throw new ApiException(ErrorCode.EMPTY_RESULTS);
-        }
                 
         // Convert User entities to DTOs, fetching status for each user
         return users.stream()

@@ -56,9 +56,6 @@ public class OrderService {
     public List<OrderDTO> getAllOrders() {
         List<Order> orders = this.orderMapper.findAll();
 
-        if(orders.size() == 0) {
-            throw new ApiException(ErrorCode.EMPTY_RESULTS);
-        }
         // Convert Order entities to DTOs, fetching status for each order
         return orders.stream()
                 .map(order -> {
@@ -82,11 +79,13 @@ public class OrderService {
 
     @Transactional(readOnly = true)
     public List<OrderDTO> getOrdersByAccountId(Long accountId) {
+        // A missing account is a 404; an existing account with no orders is an empty list
+        if(this.accountMapper.findById(accountId) == null) {
+            throw new ApiException(ErrorCode.ACCOUNT_NOT_FOUND, "Account not found with id: " + accountId);
+        }
+
         List<Order> orders = this.orderMapper.findByAccountId(accountId);
 
-        if(orders.size() == 0) {
-            throw new ApiException(ErrorCode.ORDER_NOT_FOUND, "No orders found for account id: " + accountId);
-        }
         // Convert Order entities to DTOs, fetching status for each order
         return orders.stream()
                 .map(order -> {

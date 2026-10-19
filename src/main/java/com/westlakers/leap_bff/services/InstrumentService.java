@@ -19,9 +19,6 @@ public class InstrumentService {
 
     public List<Instrument> getAllInstruments() {
         List<Instrument> instruments = this.instrumentMapper.findAll();
-        if(instruments.isEmpty()) {
-            throw new ApiException(ErrorCode.EMPTY_RESULTS);
-        }
         return instruments;
     }
 
