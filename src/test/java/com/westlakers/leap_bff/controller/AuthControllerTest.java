@@ -143,7 +143,9 @@ class AuthControllerTest {
 							"lastName": "User",
 							"phoneNumber": "5551234567",
 							"taxId": "123456789",
-							"dateOfBirth": "1995-05-10"
+							"dateOfBirth": "1995-05-10",
+							"accountTypeId": 1,
+							"settledCash": 10000.00
 						}
 						""";
 
@@ -172,6 +174,51 @@ class AuthControllerTest {
 					"lastName": "User",
 					"phoneNumber": "5551234567",
 					"dateOfBirth": "1995-05-10"
+				}
+				""";
+
+		mockMvc.perform(post("/api/auth/register")
+				.contentType(MediaType.APPLICATION_JSON)
+				.content(requestJson))
+			.andExpect(status().isBadRequest());
+
+		verify(authService, never()).register(any(RegisterRequest.class));
+	}
+
+	@Test
+	void register_NegativeSettledCash_IsRejected() throws Exception {
+		String requestJson = """
+				{
+					"email": "new.user@example.com",
+					"password": "StrongPassword123!",
+					"firstName": "New",
+					"lastName": "User",
+					"phoneNumber": "5551234567",
+					"dateOfBirth": "1995-05-10",
+					"accountTypeId": 1,
+					"settledCash": -50.00
+				}
+				""";
+
+		mockMvc.perform(post("/api/auth/register")
+				.contentType(MediaType.APPLICATION_JSON)
+				.content(requestJson))
+			.andExpect(status().isBadRequest());
+
+		verify(authService, never()).register(any(RegisterRequest.class));
+	}
+
+	@Test
+	void register_MissingAccountType_IsRejected() throws Exception {
+		String requestJson = """
+				{
+					"email": "new.user@example.com",
+					"password": "StrongPassword123!",
+					"firstName": "New",
+					"lastName": "User",
+					"phoneNumber": "5551234567",
+					"dateOfBirth": "1995-05-10",
+					"settledCash": 100.00
 				}
 				""";
 

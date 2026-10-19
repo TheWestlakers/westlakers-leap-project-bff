@@ -5,12 +5,14 @@ import com.westlakers.leap_bff.dtos.CurrentUserResponse;
 import com.westlakers.leap_bff.dtos.LoginRequest;
 import com.westlakers.leap_bff.dtos.RegisterRequest;
 import com.westlakers.leap_bff.dtos.RegisterResponse;
+import com.westlakers.leap_bff.entities.Account;
 import com.westlakers.leap_bff.entities.User;
 import com.westlakers.leap_bff.entities.UserCredentials;
 import com.westlakers.leap_bff.exceptions.ApiException;
 import com.westlakers.leap_bff.exceptions.ErrorCode;
 import com.westlakers.leap_bff.mappers.AccountMapper;
 import com.westlakers.leap_bff.mappers.AccountStatusMapper;
+import com.westlakers.leap_bff.mappers.AccountTypeMapper;
 import com.westlakers.leap_bff.mappers.UserCredentialsMapper;
 import com.westlakers.leap_bff.mappers.UserMapper;
 import com.westlakers.leap_bff.security.JwtService;
@@ -29,11 +31,13 @@ public class AuthService {
 
     private static final long DEFAULT_USER_STATUS_ID = 1L;
     private static final long DEFAULT_ROLE_ID = 2L;
+    private static final long DEFAULT_ACCOUNT_STATUS_ID = 1L; // OPEN
 
     private final UserMapper userMapper;
     private final UserCredentialsMapper userCredentialsMapper;
     private final AccountMapper accountMapper;
     private final AccountStatusMapper accountStatusMapper;
+    private final AccountTypeMapper accountTypeMapper;
     private final PasswordEncoder passwordEncoder;
     private final JwtService jwtService;
 
@@ -43,6 +47,10 @@ public class AuthService {
 
         if (userCredentialsMapper.findByEmail(normalizedEmail) != null) {
             throw new ApiException(ErrorCode.INVALID_INPUT, "An account with that email already exists");
+        }
+
+        if (accountTypeMapper.findById(request.getAccountTypeId()) == null) {
+            throw new ApiException(ErrorCode.INVALID_ACCOUNT_TYPE, "Account type not found with id: " + request.getAccountTypeId());
         }
 
         User user = new User();
@@ -70,6 +78,18 @@ public class AuthService {
         int credentialInsert = userCredentialsMapper.insert(credentials);
         if (credentialInsert == 0) {
             throw new ApiException(ErrorCode.CREATION_FAILED, "Failed to create user credentials");
+        }
+
+        // Open the user's first trading account in the same transaction so registration is all-or-nothing
+        Account account = new Account();
+        account.setUserId(user.getUserId());
+        account.setAccountTypeId(request.getAccountTypeId());
+        account.setAccountStatusId(DEFAULT_ACCOUNT_STATUS_ID);
+        account.setSettledCash(request.getSettledCash());
+
+        int accountInsert = accountMapper.insert(account);
+        if (accountInsert == 0) {
+            throw new ApiException(ErrorCode.ACCOUNT_CREATION_FAILED);
         }
 
         return new RegisterResponse(user.getUserId(), normalizedEmail, normalizedEmail);

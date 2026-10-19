@@ -6,12 +6,14 @@ import com.westlakers.leap_bff.dtos.RegisterRequest;
 import com.westlakers.leap_bff.dtos.RegisterResponse;
 import com.westlakers.leap_bff.entities.Account;
 import com.westlakers.leap_bff.entities.AccountStatus;
+import com.westlakers.leap_bff.entities.AccountType;
 import com.westlakers.leap_bff.entities.User;
 import com.westlakers.leap_bff.entities.UserCredentials;
 import com.westlakers.leap_bff.exceptions.ApiException;
 import com.westlakers.leap_bff.exceptions.ErrorCode;
 import com.westlakers.leap_bff.mappers.AccountMapper;
 import com.westlakers.leap_bff.mappers.AccountStatusMapper;
+import com.westlakers.leap_bff.mappers.AccountTypeMapper;
 import com.westlakers.leap_bff.mappers.UserCredentialsMapper;
 import com.westlakers.leap_bff.mappers.UserMapper;
 import com.westlakers.leap_bff.security.JwtService;
@@ -52,6 +54,9 @@ class AuthServiceTest {
     private AccountStatusMapper accountStatusMapper;
 
     @Mock
+    private AccountTypeMapper accountTypeMapper;
+
+    @Mock
     private PasswordEncoder passwordEncoder;
 
     @Mock
@@ -75,8 +80,11 @@ class AuthServiceTest {
         request.setPhoneNumber("5551234567");
         request.setTaxId("123456789");
         request.setDateOfBirth(LocalDate.of(1995, 5, 10));
+        request.setAccountTypeId(1L);
+        request.setSettledCash(new BigDecimal("10000.00"));
 
         when(userCredentialsMapper.findByEmail("newuser@example.com")).thenReturn(null);
+        when(accountTypeMapper.findById(1L)).thenReturn(new AccountType(1L, "INDIVIDUAL"));
         when(userMapper.insert(any(User.class))).thenAnswer(invocation -> {
             User user = invocation.getArgument(0);
             user.setUserId(42L);
@@ -84,6 +92,7 @@ class AuthServiceTest {
         });
         when(passwordEncoder.encode("PlainText123!")).thenReturn("hashed-password");
         when(userCredentialsMapper.insert(any(UserCredentials.class))).thenReturn(1);
+        when(accountMapper.insert(any(Account.class))).thenReturn(1);
 
         RegisterResponse response = authService.register(request);
 
@@ -97,6 +106,30 @@ class AuthServiceTest {
         assertEquals("hashed-password", credentialsCaptor.getValue().getPasswordHash());
         assertEquals(2L, credentialsCaptor.getValue().getRoleId());
         assertEquals(42L, credentialsCaptor.getValue().getUserId());
+
+        ArgumentCaptor<Account> accountCaptor = ArgumentCaptor.forClass(Account.class);
+        verify(accountMapper, times(1)).insert(accountCaptor.capture());
+        assertEquals(42L, accountCaptor.getValue().getUserId());
+        assertEquals(1L, accountCaptor.getValue().getAccountTypeId());
+        assertEquals(1L, accountCaptor.getValue().getAccountStatusId());
+        assertEquals(new BigDecimal("10000.00"), accountCaptor.getValue().getSettledCash());
+    }
+
+    @Test
+    void register_UnknownAccountType_ThrowsApiException() {
+        RegisterRequest request = new RegisterRequest();
+        request.setEmail("newuser@example.com");
+        request.setAccountTypeId(99L);
+        request.setSettledCash(BigDecimal.ZERO);
+
+        when(userCredentialsMapper.findByEmail("newuser@example.com")).thenReturn(null);
+        when(accountTypeMapper.findById(99L)).thenReturn(null);
+
+        ApiException ex = assertThrows(ApiException.class, () -> authService.register(request));
+        assertEquals(ErrorCode.INVALID_ACCOUNT_TYPE, ex.getErrorCode());
+
+        verify(userMapper, never()).insert(any(User.class));
+        verify(accountMapper, never()).insert(any(Account.class));
     }
 
     @Test
