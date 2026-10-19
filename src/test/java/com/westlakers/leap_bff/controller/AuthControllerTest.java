@@ -1,9 +1,11 @@
 package com.westlakers.leap_bff.controller;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.westlakers.leap_bff.dtos.CurrentUserResponse;
 import com.westlakers.leap_bff.dtos.LoginRequest;
 import com.westlakers.leap_bff.dtos.RegisterRequest;
 import com.westlakers.leap_bff.dtos.RegisterResponse;
+import com.westlakers.leap_bff.dtos.RefreshTokenRequest;
 import com.westlakers.leap_bff.exceptions.ApiException;
 import com.westlakers.leap_bff.exceptions.ErrorCode;
 import com.westlakers.leap_bff.exceptions.GlobalExceptionHandler;
@@ -14,9 +16,12 @@ import org.junit.jupiter.api.Test;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 import org.springframework.http.MediaType;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import org.springframework.validation.beanvalidation.LocalValidatorFactoryBean;
+
+import java.util.List;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.never;
@@ -62,14 +67,41 @@ class AuthControllerTest {
 		request.setPassword("password123");
 
 		when(authService.authenticateAndIssueToken(any(LoginRequest.class))).thenReturn("jwt-token");
+		when(jwtService.generateRefreshToken("jdoe@example.com")).thenReturn("refresh-token");
 
 		mockMvc.perform(post("/api/auth/login")
 				.contentType(MediaType.APPLICATION_JSON)
 				.content(objectMapper.writeValueAsString(request)))
 			.andExpect(status().isOk())
-			.andExpect(jsonPath("$.token").value("jwt-token"));
+			.andExpect(jsonPath("$.token").value("jwt-token"))
+			.andExpect(jsonPath("$.refreshToken").value("refresh-token"));
 
 		verify(authService, times(1)).authenticateAndIssueToken(any(LoginRequest.class));
+	}
+
+	@Test
+	void refresh_ValidRefreshToken_ReturnsAccessToken() throws Exception {
+		when(jwtService.validateRefreshToken("refresh-token")).thenReturn(true);
+		when(jwtService.getEmailFromToken("refresh-token")).thenReturn("jdoe@example.com");
+		when(jwtService.generateToken("jdoe@example.com")).thenReturn("new-jwt-token");
+
+		mockMvc.perform(post("/api/auth/refresh")
+				.contentType(MediaType.APPLICATION_JSON)
+				.content("{\"refreshToken\":\"refresh-token\"}"))
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.token").value("new-jwt-token"))
+			.andExpect(jsonPath("$.refreshToken").value("refresh-token"));
+	}
+
+	@Test
+	void refresh_InvalidRefreshToken_ReturnsUnauthorized() throws Exception {
+		when(jwtService.validateRefreshToken("invalid-token")).thenReturn(false);
+
+		mockMvc.perform(post("/api/auth/refresh")
+				.contentType(MediaType.APPLICATION_JSON)
+				.content("{\"refreshToken\":\"invalid-token\"}"))
+			.andExpect(status().isUnauthorized())
+			.andExpect(jsonPath("$.errorCode").value("ERR_042"));
 	}
 
 	@Test
@@ -111,7 +143,9 @@ class AuthControllerTest {
 							"lastName": "User",
 							"phoneNumber": "5551234567",
 							"taxId": "123456789",
-							"dateOfBirth": "1995-05-10"
+							"dateOfBirth": "1995-05-10",
+							"accountTypeId": 1,
+							"settledCash": 10000.00
 						}
 						""";
 
@@ -152,6 +186,51 @@ class AuthControllerTest {
 	}
 
 	@Test
+	void register_NegativeSettledCash_IsRejected() throws Exception {
+		String requestJson = """
+				{
+					"email": "new.user@example.com",
+					"password": "StrongPassword123!",
+					"firstName": "New",
+					"lastName": "User",
+					"phoneNumber": "5551234567",
+					"dateOfBirth": "1995-05-10",
+					"accountTypeId": 1,
+					"settledCash": -50.00
+				}
+				""";
+
+		mockMvc.perform(post("/api/auth/register")
+				.contentType(MediaType.APPLICATION_JSON)
+				.content(requestJson))
+			.andExpect(status().isBadRequest());
+
+		verify(authService, never()).register(any(RegisterRequest.class));
+	}
+
+	@Test
+	void register_MissingAccountType_IsRejected() throws Exception {
+		String requestJson = """
+				{
+					"email": "new.user@example.com",
+					"password": "StrongPassword123!",
+					"firstName": "New",
+					"lastName": "User",
+					"phoneNumber": "5551234567",
+					"dateOfBirth": "1995-05-10",
+					"settledCash": 100.00
+				}
+				""";
+
+		mockMvc.perform(post("/api/auth/register")
+				.contentType(MediaType.APPLICATION_JSON)
+				.content(requestJson))
+			.andExpect(status().isBadRequest());
+
+		verify(authService, never()).register(any(RegisterRequest.class));
+	}
+
+	@Test
 	void validateToken_WithBearerHeader_ReturnsTrue() throws Exception {
 		when(jwtService.validateToken("valid.token")).thenReturn(true);
 
@@ -171,5 +250,26 @@ class AuthControllerTest {
 			.andExpect(content().string("false"));
 
 		verify(jwtService, never()).validateToken(any());
+	}
+
+	@Test
+	void me_Authenticated_ReturnsCurrentUser() throws Exception {
+		when(authService.getCurrentUser("jdoe@example.com"))
+			.thenReturn(new CurrentUserResponse(5L, "jdoe@example.com", "John", "Doe", List.of()));
+
+		mockMvc.perform(get("/api/auth/me")
+				.principal(new UsernamePasswordAuthenticationToken("jdoe@example.com", null, List.of())))
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.userId").value(5))
+			.andExpect(jsonPath("$.firstName").value("John"))
+			.andExpect(jsonPath("$.accounts").isArray());
+	}
+
+	@Test
+	void me_Unauthenticated_ReturnsUnauthorized() throws Exception {
+		mockMvc.perform(get("/api/auth/me"))
+			.andExpect(status().isUnauthorized());
+
+		verify(authService, never()).getCurrentUser(any());
 	}
 }

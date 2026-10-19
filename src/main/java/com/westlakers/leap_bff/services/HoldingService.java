@@ -8,6 +8,7 @@ import java.util.stream.Collectors;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.westlakers.leap_bff.mappers.AccountMapper;
 import com.westlakers.leap_bff.mappers.HoldingMapper;
 import com.westlakers.leap_bff.entities.Holding;
 import com.westlakers.leap_bff.dtos.HoldingDTO;
@@ -20,18 +21,17 @@ import com.westlakers.leap_bff.exceptions.ErrorCode;
 public class HoldingService {
 
     private final HoldingMapper holdingMapper;
+    private final AccountMapper accountMapper;
 
-    public HoldingService(HoldingMapper holdingMapper) {
+    public HoldingService(HoldingMapper holdingMapper, AccountMapper accountMapper) {
         this.holdingMapper = holdingMapper;
+        this.accountMapper = accountMapper;
     }
 
     @Transactional(readOnly = true)
     public List<HoldingDTO> getAllHoldings() {
         List<Holding> holdings = this.holdingMapper.findAll();
 
-        if(holdings.size() == 0) {
-            throw new ApiException(ErrorCode.EMPTY_HOLDINGS_LIST);
-        }
         // Convert Holding entities to DTOs
         return holdings.stream()
                 .map(HoldingDTO::fromEntity)
@@ -51,11 +51,13 @@ public class HoldingService {
 
     @Transactional(readOnly = true)
     public List<HoldingDTO> getHoldingsByAccountId(Long accountId) {
+        // A missing account is a 404 and existing account with no holdings is an empty list
+        if(this.accountMapper.findById(accountId) == null) {
+            throw new ApiException(ErrorCode.ACCOUNT_NOT_FOUND, "Account not found with id: " + accountId);
+        }
+
         List<Holding> holdings = this.holdingMapper.findByAccountId(accountId);
 
-        if(holdings.size() == 0) {
-            throw new ApiException(ErrorCode.HOLDING_NOT_FOUND, "No holdings found for account id: " + accountId);
-        }
         // Convert Holding entities to DTOs
         return holdings.stream()
                 .map(HoldingDTO::fromEntity)

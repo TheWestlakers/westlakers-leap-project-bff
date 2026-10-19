@@ -106,13 +106,15 @@ class UserServiceTest {
     }
 
     @Test
-    void testGetAllUsers_EmptyList_ThrowsException() {
+    void testGetAllUsers_EmptyList_ReturnsEmptyList() {
         // Arrange
         when(userMapper.findAll()).thenReturn(Collections.emptyList());
 
-        // Act & Assert
-        ApiException exception = assertThrows(ApiException.class, () -> userService.getAllUsers());
-        assertEquals(ErrorCode.EMPTY_RESULTS, exception.getErrorCode());
+        // Act
+        List<UserDTO> result = userService.getAllUsers();
+
+        // Assert
+        assertTrue(result.isEmpty());
     }
 
     @Test
