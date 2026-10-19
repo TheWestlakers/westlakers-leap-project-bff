@@ -1,9 +1,12 @@
 package com.westlakers.leap_bff.services;
 
 import com.westlakers.leap_bff.dtos.HoldingDTO;
+import com.westlakers.leap_bff.entities.Account;
 import com.westlakers.leap_bff.entities.Holding;
 import com.westlakers.leap_bff.mappers.HoldingMapper;
 import com.westlakers.leap_bff.exceptions.ApiException;
+import com.westlakers.leap_bff.exceptions.ErrorCode;
+import com.westlakers.leap_bff.mappers.AccountMapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.InjectMocks;
@@ -23,6 +26,9 @@ class HoldingServiceTest {
 
     @Mock
     private HoldingMapper holdingMapper;
+
+    @Mock
+    private AccountMapper accountMapper;
 
     @InjectMocks
     private HoldingService holdingService;
@@ -66,14 +72,15 @@ class HoldingServiceTest {
     }
 
     @Test
-    void testGetAllHoldings_EmptyList_ThrowsException() {
+    void testGetAllHoldings_EmptyList_ReturnsEmptyList() {
         // Arrange
         when(holdingMapper.findAll()).thenReturn(Collections.emptyList());
 
-        // Act & Assert
-        assertThrows(ApiException.class, () -> holdingService.getAllHoldings());
-        
-        // Verify the only call was findAll
+        // Act
+        List<HoldingDTO> result = holdingService.getAllHoldings();
+
+        // Assert
+        assertTrue(result.isEmpty());
         verify(holdingMapper, times(1)).findAll();
     }
 
@@ -108,6 +115,7 @@ class HoldingServiceTest {
     void testGetHoldingsByAccountId_Success() {
         // Arrange
         List<Holding> holdings = Arrays.asList(testHolding);
+        when(accountMapper.findById(1L)).thenReturn(new Account());
         when(holdingMapper.findByAccountId(1L)).thenReturn(holdings);
 
         // Act
@@ -121,15 +129,28 @@ class HoldingServiceTest {
     }
 
     @Test
-    void testGetHoldingsByAccountId_NoHoldings_ThrowsException() {
+    void testGetHoldingsByAccountId_NoHoldings_ReturnsEmptyList() {
         // Arrange
-        when(holdingMapper.findByAccountId(999L)).thenReturn(Collections.emptyList());
+        when(accountMapper.findById(1L)).thenReturn(new Account());
+        when(holdingMapper.findByAccountId(1L)).thenReturn(Collections.emptyList());
+
+        // Act
+        List<HoldingDTO> result = holdingService.getHoldingsByAccountId(1L);
+
+        // Assert
+        assertTrue(result.isEmpty());
+        verify(holdingMapper, times(1)).findByAccountId(1L);
+    }
+
+    @Test
+    void testGetHoldingsByAccountId_AccountNotFound_ThrowsException() {
+        // Arrange
+        when(accountMapper.findById(999L)).thenReturn(null);
 
         // Act & Assert
-        assertThrows(ApiException.class, () -> holdingService.getHoldingsByAccountId(999L));
-        
-        // Verify the lookup was attempted
-        verify(holdingMapper, times(1)).findByAccountId(999L);
+        ApiException exception = assertThrows(ApiException.class, () -> holdingService.getHoldingsByAccountId(999L));
+        assertEquals(ErrorCode.ACCOUNT_NOT_FOUND, exception.getErrorCode());
+        verify(holdingMapper, never()).findByAccountId(any());
     }
 
     @Test
