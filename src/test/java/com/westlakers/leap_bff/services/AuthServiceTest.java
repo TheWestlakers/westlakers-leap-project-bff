@@ -215,6 +215,7 @@ class AuthServiceTest {
         UserCredentials credentials = new UserCredentials();
         credentials.setUserId(7L);
         credentials.setEmail("trader@example.com");
+        credentials.setRoleId(1L);
         credentials.setActive(true);
 
         User user = new User();
@@ -242,6 +243,7 @@ class AuthServiceTest {
         assertEquals("trader@example.com", response.getEmail());
         assertEquals("Jane", response.getFirstName());
         assertEquals("Trader", response.getLastName());
+        assertEquals(1L, response.getRoleId());
         assertEquals(1, response.getAccounts().size());
         assertEquals(11L, response.getAccounts().get(0).getAccountId());
         assertEquals("ACTIVE", response.getAccounts().get(0).getStatusName());

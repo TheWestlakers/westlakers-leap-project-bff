@@ -133,6 +133,7 @@ public class AuthService {
                 credentials.getEmail(),
                 user.getFirstName(),
                 user.getLastName(),
+                credentials.getRoleId(),
                 accounts);
     }
 
