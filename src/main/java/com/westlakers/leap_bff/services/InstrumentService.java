@@ -8,6 +8,7 @@ import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
+import java.util.Locale;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -77,7 +78,11 @@ public class InstrumentService {
             for (JsonNode quote : quotes) {
                 String ticker = quote.path("symbol").asText("").trim();
                 String name = quote.path("longname").asText(quote.path("shortname").asText("")).trim();
-                if (ticker.isEmpty() || name.isEmpty() || instrumentMapper.findByTicker(ticker) != null) {
+                String normalizedQuery = query.toLowerCase(Locale.ROOT);
+                if (ticker.isEmpty() || name.isEmpty()
+                        || (!ticker.toLowerCase(Locale.ROOT).startsWith(normalizedQuery)
+                        && !name.toLowerCase(Locale.ROOT).startsWith(normalizedQuery))
+                        || instrumentMapper.findByTicker(ticker) != null) {
                     continue;
                 }
 
