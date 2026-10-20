@@ -90,8 +90,8 @@ class JwtServiceTest {
         Date refreshExpiration = Jwts.parser().verifyWith(key).build()
             .parseSignedClaims(refreshToken).getPayload().getExpiration();
 
-        assertTrue(accessExpiration.getTime() - before >= 15 * 60 * 1000L - timestampToleranceMs);
-        assertTrue(accessExpiration.getTime() - after <= 15 * 60 * 1000L);
+        assertTrue(accessExpiration.getTime() - before >= 60 * 1000L - timestampToleranceMs);
+        assertTrue(accessExpiration.getTime() - after <= 60 * 1000L);
         assertTrue(refreshExpiration.getTime() - before >= 7 * 24 * 60 * 60 * 1000L - timestampToleranceMs);
         assertTrue(refreshExpiration.getTime() - after <= 7 * 24 * 60 * 60 * 1000L);
     }
