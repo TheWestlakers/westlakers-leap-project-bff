@@ -16,5 +16,6 @@ public class CurrentUserResponse {
     private String email;
     private String firstName;
     private String lastName;
+    private Long roleId;
     private List<AccountDTO> accounts;
 }

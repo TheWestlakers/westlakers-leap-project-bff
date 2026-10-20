@@ -255,13 +255,14 @@ class AuthControllerTest {
 	@Test
 	void me_Authenticated_ReturnsCurrentUser() throws Exception {
 		when(authService.getCurrentUser("jdoe@example.com"))
-			.thenReturn(new CurrentUserResponse(5L, "jdoe@example.com", "John", "Doe", List.of()));
+			.thenReturn(new CurrentUserResponse(5L, "jdoe@example.com", "John", "Doe", 2L, List.of()));
 
 		mockMvc.perform(get("/api/auth/me")
 				.principal(new UsernamePasswordAuthenticationToken("jdoe@example.com", null, List.of())))
 			.andExpect(status().isOk())
 			.andExpect(jsonPath("$.userId").value(5))
 			.andExpect(jsonPath("$.firstName").value("John"))
+			.andExpect(jsonPath("$.roleId").value(2))
 			.andExpect(jsonPath("$.accounts").isArray());
 	}
 
