@@ -4,6 +4,7 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.List;
 
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.RowMapper;
 import org.springframework.stereotype.Repository;
@@ -19,17 +20,16 @@ public class TradingVolumeRepository {
                    side, quantity, limit_price, executed_at, account_type,
                    first_name, last_name, instrument_code, instrument_name,
                    instrument_type, client_segment, created_at
-                 FROM stg_trading_volumes stv
-                 LEFT JOIN order_status os ON stv.order_status_id = os.order_status_id
-                 ORDER BY stv.executed_at DESC NULLS LAST, stv.staging_id ASC
+            FROM public.stg_trading_volumes
+            ORDER BY executed_at ASC NULLS LAST, staging_id ASC
             LIMIT ? OFFSET ?
             """;
 
-    private static final String COUNT_ALL = "SELECT COUNT(*) FROM stg_trading_volumes";
+    private static final String COUNT_ALL = "SELECT COUNT(*) FROM public.stg_trading_volumes";
 
     private final JdbcTemplate analyticsJdbcTemplate;
 
-    public TradingVolumeRepository(JdbcTemplate analyticsJdbcTemplate) {
+    public TradingVolumeRepository(@Qualifier("analyticsJdbcTemplate") JdbcTemplate analyticsJdbcTemplate) {
         this.analyticsJdbcTemplate = analyticsJdbcTemplate;
     }
 
