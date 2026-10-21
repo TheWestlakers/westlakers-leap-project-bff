@@ -83,6 +83,7 @@ CREATE TABLE IF NOT EXISTS stg_trading_volumes (
     side VARCHAR(10),
     quantity DECIMAL(18,8),
     limit_price DECIMAL(18,8),
+    execution_price DECIMAL(18,8),
     executed_at TIMESTAMP,
     account_type VARCHAR(50),
     first_name VARCHAR(255),

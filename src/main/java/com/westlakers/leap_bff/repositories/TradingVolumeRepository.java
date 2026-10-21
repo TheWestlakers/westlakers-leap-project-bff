@@ -17,12 +17,12 @@ public class TradingVolumeRepository {
     private static final String FIND_PAGE_ORDERED_BY_EXECUTED_AT = """
                                  SELECT stv.staging_id, stv.order_id, stv.order_status_id, os.status_name AS order_status,
                                          stv.account_id, stv.instrument_id, stv.user_id,
-                                     stv.side, stv.quantity, stv.limit_price, stv.executed_at, stv.account_type,
+                                     stv.side, stv.quantity, stv.limit_price, stv.execution_price, stv.executed_at, stv.account_type,
                                      stv.first_name, stv.last_name, stv.instrument_code, stv.instrument_name,
                                      stv.instrument_type, stv.client_segment, stv.created_at
                         FROM public.stg_trading_volumes stv
                         LEFT JOIN public.order_status os ON os.order_status_id = stv.order_status_id
-                        ORDER BY stv.executed_at ASC NULLS LAST, stv.staging_id ASC
+                        ORDER BY stv.executed_at DESC NULLS LAST, stv.staging_id ASC
             LIMIT ? OFFSET ?
             """;
 
@@ -61,6 +61,7 @@ public class TradingVolumeRepository {
                     resultSet.getString("side"),
                     resultSet.getBigDecimal("quantity"),
                     resultSet.getBigDecimal("limit_price"),
+                    resultSet.getBigDecimal("execution_price"),
                     resultSet.getTimestamp("executed_at") == null
                             ? null : resultSet.getTimestamp("executed_at").toLocalDateTime(),
                     resultSet.getString("account_type"),

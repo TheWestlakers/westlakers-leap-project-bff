@@ -91,7 +91,6 @@ class TradingVolumesETL:
             if not self._ensure_order_status_schema():
                 logger.error("Failed to prepare order status schema")
                 return False
-
             # Calculate date range
             end_date = datetime.now()
             start_date = end_date - timedelta(days=days_back)
@@ -201,6 +200,10 @@ class TradingVolumesETL:
             """,
             """
             ALTER TABLE stg_trading_volumes
+                ADD COLUMN IF NOT EXISTS execution_price DECIMAL(18,8)
+            """,
+            """
+            ALTER TABLE stg_trading_volumes
                 ALTER COLUMN order_status_id TYPE VARCHAR(50)
                 USING order_status_id::VARCHAR
             """,
@@ -228,12 +231,13 @@ class TradingVolumesETL:
         query = """
             SELECT 
                 o.order_id,
-                o.status as order_status_id,
                 o.account_id,
                 o.instrument_id,
                 o.side,
                 o.quantity,
                 o.limit_price,
+                o.execution_price,
+                o.status as order_status_id,
                 o.placed_at,
                 o.executed_at,
                 u.user_id,
@@ -248,8 +252,9 @@ class TradingVolumesETL:
             JOIN users u ON ac.user_id = u.user_id
             JOIN instruments i ON o.instrument_id = i.instrument_id
             JOIN account_types at ON ac.account_type_id = at.account_type_id
-            WHERE o.executed_at >= %s AND o.executed_at <= %s
-            ORDER BY o.executed_at
+                        WHERE COALESCE(o.executed_at, o.placed_at) >= %s
+                            AND COALESCE(o.executed_at, o.placed_at) <= %s
+                        ORDER BY COALESCE(o.executed_at, o.placed_at)
         """
         
         try:
@@ -276,25 +281,41 @@ class TradingVolumesETL:
         try:
             insert_query = """
                 INSERT INTO stg_trading_volumes 
-                (order_id, order_status_id, account_id, instrument_id, user_id, side, quantity, limit_price, 
+                (order_id, order_status_id, account_id, instrument_id, user_id, side, quantity, limit_price, execution_price,
                  executed_at, account_type, first_name, last_name, instrument_code, 
                  instrument_name, instrument_type, client_segment)
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-                ON CONFLICT (order_id) DO UPDATE
-                    SET order_status_id = EXCLUDED.order_status_id
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                ON CONFLICT (order_id) DO UPDATE SET
+                    order_status_id = EXCLUDED.order_status_id,
+                    account_id = EXCLUDED.account_id,
+                    instrument_id = EXCLUDED.instrument_id,
+                    user_id = EXCLUDED.user_id,
+                    side = EXCLUDED.side,
+                    quantity = EXCLUDED.quantity,
+                    limit_price = EXCLUDED.limit_price,
+                    execution_price = EXCLUDED.execution_price,
+                    executed_at = EXCLUDED.executed_at,
+                    account_type = EXCLUDED.account_type,
+                    first_name = EXCLUDED.first_name,
+                    last_name = EXCLUDED.last_name,
+                    instrument_code = EXCLUDED.instrument_code,
+                    instrument_name = EXCLUDED.instrument_name,
+                    instrument_type = EXCLUDED.instrument_type,
+                    client_segment = EXCLUDED.client_segment
             """
             
             count = 0
             for order in orders:
                 params = (
                     order['order_id'],
-                    str(order['order_status_id']),
+                    str(order['order_status_id']) if order['order_status_id'] is not None else None,
                     order['account_id'],
                     order['instrument_id'],
                     order['user_id'],
                     order['side'],
                     float(order['quantity']) if order['quantity'] else 0,
                     float(order['limit_price']) if order['limit_price'] else 0,
+                    float(order['execution_price']) if order['execution_price'] is not None else None,
                     order['executed_at'],
                     order['account_type'],
                     order['first_name'],
@@ -330,10 +351,10 @@ class TradingVolumesETL:
             # Get unique dates from orders
             dates_set = set()
             for order in orders:
-                executed_at = order['executed_at']
-                if isinstance(executed_at, str):
-                    executed_at = datetime.fromisoformat(executed_at)
-                dates_set.add(executed_at.replace(hour=0, minute=0, second=0, microsecond=0))
+                event_time = order['executed_at'] or order['placed_at']
+                if isinstance(event_time, str):
+                    event_time = datetime.fromisoformat(event_time)
+                dates_set.add(event_time.replace(hour=0, minute=0, second=0, microsecond=0))
             
             if not dates_set:
                 logger.warning("No dates found in orders")

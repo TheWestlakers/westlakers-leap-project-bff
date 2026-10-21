@@ -34,7 +34,7 @@ public class Order {
     @NotBlank(message = "Order type cannot be blank")
     private String orderType;
     
-    @DecimalMin(value = "0.0", inclusive = false, message = "Limit price must be greater than 0")
+    @DecimalMin(value = "0.0001", message = "Limit price must be at least 0.0001")
     private BigDecimal limitPrice;
     
     @DecimalMin(value = "0.0", inclusive = false, message = "Execution price must be greater than 0")

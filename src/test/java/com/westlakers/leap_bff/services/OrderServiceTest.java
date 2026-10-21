@@ -512,6 +512,36 @@ class OrderServiceTest {
     }
 
     @Test
+    void testCreateLimitTrade_LimitPriceBelowMinimum_ThrowsException() {
+        // Arrange
+        testLimitOrderRequest.setLimitPrice(new BigDecimal("0.00009"));
+        when(accountMapper.findById(1L)).thenReturn(testAccount);
+        when(instrumentMapper.findById(1L)).thenReturn(testInstrument);
+
+        // Act & Assert
+        assertThrows(ApiException.class, () -> orderService.createLimitTrade(testLimitOrderRequest));
+        verify(orderMapper, never()).insert(any());
+    }
+
+    @Test
+    void testCreateLimitTrade_LimitPriceAtMinimum_Success() {
+        // Arrange
+        testLimitOrderRequest.setLimitPrice(new BigDecimal("0.0001"));
+        when(accountMapper.findById(1L)).thenReturn(testAccount);
+        when(instrumentMapper.findById(1L)).thenReturn(testInstrument);
+        when(orderMapper.insert(any())).thenReturn(1);
+        when(orderStatusMapper.findById(1L)).thenReturn(testStatus);
+
+        // Act
+        TradeExecutionResponse result = orderService.createLimitTrade(testLimitOrderRequest);
+
+        // Assert
+        assertNotNull(result);
+        assertEquals(new BigDecimal("0.0001"), result.getLimitPrice());
+        verify(orderMapper, times(1)).insert(any());
+    }
+
+    @Test
     void testCreateLimitTrade_InsufficientFunds_ThrowsException() {
         // Arrange
         testAccount.setSettledCash(new BigDecimal("100.00")); // Less than 100 shares at the $140 limit price

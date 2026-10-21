@@ -23,6 +23,7 @@ public class TradingVolumeDTO {
     private String side;
     private BigDecimal quantity;
     private BigDecimal limitPrice;
+    private BigDecimal executionPrice;
     private LocalDateTime executedAt;
     private String accountType;
     private String firstName;

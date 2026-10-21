@@ -343,7 +343,7 @@ public class OrderService {
         if (request.getQuantity() == null || request.getQuantity().compareTo(BigDecimal.ZERO) <= 0) {
             throw new ApiException(ErrorCode.INVALID_QUANTITY);
         }
-        if (request.getLimitPrice() == null || request.getLimitPrice().compareTo(BigDecimal.ZERO) <= 0) {
+        if (request.getLimitPrice() == null || request.getLimitPrice().compareTo(new BigDecimal("0.0001")) < 0) {
             throw new ApiException(ErrorCode.INVALID_PRICE);
         }
     }
@@ -382,8 +382,8 @@ public class OrderService {
     }
 
     private void validateLimitPriceForSide(String side, BigDecimal limitPrice) {
-        if (limitPrice == null || limitPrice.compareTo(BigDecimal.ZERO) <= 0) {
-            throw new ApiException(ErrorCode.INVALID_PRICE, "Limit price must be greater than 0");
+        if (limitPrice == null || limitPrice.compareTo(new BigDecimal("0.0001")) < 0) {
+            throw new ApiException(ErrorCode.INVALID_PRICE, "Limit price must be at least 0.0001");
         }
     }
 
