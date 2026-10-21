@@ -95,6 +95,15 @@ CREATE TABLE IF NOT EXISTS accounts (
                                   REFERENCES account_types(account_type_id)
 );
 
+CREATE TABLE IF NOT EXISTS account_watchlist (
+                            account_id INTEGER NOT NULL,
+                            ticker VARCHAR(20) NOT NULL,
+                            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                            CONSTRAINT pk_account_watchlist PRIMARY KEY (account_id, ticker),
+                            CONSTRAINT fk_watchlist_account FOREIGN KEY (account_id)
+                                REFERENCES accounts(account_id) ON DELETE CASCADE
+);
+
 CREATE TABLE IF NOT EXISTS instruments (
                              instrument_id SERIAL PRIMARY KEY,
                              market_id INTEGER NOT NULL,

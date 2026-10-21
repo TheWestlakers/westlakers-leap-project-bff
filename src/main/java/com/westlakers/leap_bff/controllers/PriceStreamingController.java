@@ -2,6 +2,7 @@ package com.westlakers.leap_bff.controllers;
 
 import com.westlakers.leap_bff.dtos.PriceDTO;
 import com.westlakers.leap_bff.services.PriceStreamingService;
+import com.westlakers.leap_bff.services.WatchlistService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
@@ -36,6 +37,9 @@ public class PriceStreamingController {
     
     @Autowired
     private PriceStreamingService priceStreamingService;
+
+    @Autowired
+    private WatchlistService watchlistService;
     
     /**
      * Get the latest price for a specific ticker
@@ -178,6 +182,12 @@ public class PriceStreamingController {
     @PostMapping("/tickers/watchlist/sync")
     public ResponseEntity<?> syncWatchlist(@RequestBody Map<String, Object> payload) {
         try {
+            Object accountIdValue = payload.get("accountId");
+            if (!(accountIdValue instanceof Number)) {
+                return ResponseEntity.badRequest().body(Map.of("error", "accountId is required"));
+            }
+            Long accountId = ((Number) accountIdValue).longValue();
+
             Object clientIdValue = payload.get("clientId");
             if (!(clientIdValue instanceof String clientId) || clientId.trim().isEmpty()) {
                 return ResponseEntity.badRequest().body(Map.of(
@@ -194,7 +204,8 @@ public class PriceStreamingController {
                     .collect(Collectors.toList());
             }
 
-            Set<String> synced = priceStreamingService.syncWatchlist(clientId, tickerList);
+            Set<String> synced = watchlistService.syncWatchlist(accountId, tickerList);
+            priceStreamingService.syncWatchlist(clientId, synced);
             return ResponseEntity.ok(Map.of(
                 "count", synced.size(),
                 "tickers", new ArrayList<>(synced)
@@ -203,6 +214,20 @@ public class PriceStreamingController {
             log.error("Error syncing watchlist: {}", e.getMessage());
             return ResponseEntity.badRequest().body(Map.of(
                 "error", "Failed to sync watchlist",
+                "message", e.getMessage()
+            ));
+        }
+    }
+
+    @GetMapping("/accounts/{accountId}/watchlist")
+    public ResponseEntity<?> getAccountWatchlist(@PathVariable Long accountId) {
+        try {
+            List<String> tickers = watchlistService.getWatchlist(accountId);
+            return ResponseEntity.ok(Map.of("count", tickers.size(), "tickers", tickers));
+        } catch (Exception e) {
+            log.error("Error fetching account watchlist: {}", e.getMessage());
+            return ResponseEntity.badRequest().body(Map.of(
+                "error", "Failed to fetch watchlist",
                 "message", e.getMessage()
             ));
         }
