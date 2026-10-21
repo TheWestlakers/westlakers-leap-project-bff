@@ -45,6 +45,9 @@ public enum ErrorCode {
     FORBIDDEN("ERR_041", HttpStatus.FORBIDDEN, "User does not have permission"),
     INVALID_CREDENTIALS("ERR_042", HttpStatus.UNAUTHORIZED, "Invalid credentials provided"),
 
+    // External Service Errors (503)
+    AI_ASSISTANT_UNAVAILABLE("ERR_050", HttpStatus.SERVICE_UNAVAILABLE, "AI assistant is unavailable"),
+
     // Generic Error
     INTERNAL_SERVER_ERROR("ERR_999", HttpStatus.INTERNAL_SERVER_ERROR, "An internal server error occurred");
 
