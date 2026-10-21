@@ -20,10 +20,13 @@ public interface InstrumentMapper {
 
         @Select("SELECT instrument_id, market_id, asset_class_id, ticker, name " +
             "FROM instruments " +
-            "WHERE LOWER(ticker) LIKE LOWER(CONCAT(#{query}, '%')) " +
-            "   OR LOWER(name) LIKE LOWER(CONCAT(#{query}, '%')) " +
+            "WHERE LOWER(ticker) LIKE LOWER(CONCAT('%', #{query}, '%')) " +
+            "   OR LOWER(name) LIKE LOWER(CONCAT('%', #{query}, '%')) " +
             "ORDER BY CASE WHEN LOWER(ticker) = LOWER(#{query}) THEN 0 " +
-            "              WHEN LOWER(name) = LOWER(#{query}) THEN 1 ELSE 2 END, ticker " +
+            "              WHEN LOWER(name) = LOWER(#{query}) THEN 1 " +
+            "              WHEN LOWER(ticker) LIKE LOWER(CONCAT(#{query}, '%')) THEN 2 " +
+            "              WHEN LOWER(name) LIKE LOWER(CONCAT(#{query}, '%')) THEN 3 " +
+            "              ELSE 4 END, ticker " +
             "LIMIT #{limit}")
         List<Instrument> search(@Param("query") String query, @Param("limit") int limit);
 
