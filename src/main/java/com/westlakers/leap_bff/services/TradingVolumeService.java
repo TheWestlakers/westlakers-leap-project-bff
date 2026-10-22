@@ -33,9 +33,9 @@ public class TradingVolumeService {
 
     private TradingVolumeDTO toDto(TradingVolume volume) {
         return new TradingVolumeDTO(
-                volume.getStagingId(), volume.getOrderId(), volume.getAccountId(),
+            volume.getStagingId(), volume.getOrderId(), volume.getOrderStatusId(), volume.getOrderStatus(), volume.getAccountId(),
                 volume.getInstrumentId(), volume.getUserId(), volume.getSide(),
-                volume.getQuantity(), volume.getLimitPrice(), volume.getExecutedAt(),
+                volume.getQuantity(), volume.getLimitPrice(), volume.getExecutionPrice(), volume.getExecutedAt(),
                 volume.getAccountType(), volume.getFirstName(), volume.getLastName(),
                 volume.getInstrumentCode(), volume.getInstrumentName(), volume.getInstrumentType(),
                 volume.getClientSegment(), volume.getCreatedAt());

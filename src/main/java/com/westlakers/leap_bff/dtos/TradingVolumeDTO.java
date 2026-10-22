@@ -15,12 +15,15 @@ import lombok.NoArgsConstructor;
 public class TradingVolumeDTO {
     private Long stagingId;
     private Long orderId;
+    private String orderStatusId;
+    private String orderStatus;
     private Long accountId;
     private Integer instrumentId;
     private Long userId;
     private String side;
     private BigDecimal quantity;
     private BigDecimal limitPrice;
+    private BigDecimal executionPrice;
     private LocalDateTime executedAt;
     private String accountType;
     private String firstName;

@@ -36,6 +36,6 @@ public class LimitOrderRequest {
     private BigDecimal quantity;
     
     @NotNull(message = "Limit price cannot be null")
-    @DecimalMin(value = "0.0", inclusive = false, message = "Limit price must be greater than 0")
+    @DecimalMin(value = "0.0001", message = "Limit price must be at least 0.0001")
     private BigDecimal limitPrice;
 }
