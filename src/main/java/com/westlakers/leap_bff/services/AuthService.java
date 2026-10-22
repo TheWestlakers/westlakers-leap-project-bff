@@ -1,13 +1,18 @@
 package com.westlakers.leap_bff.services;
 
+import com.westlakers.leap_bff.dtos.AccountDTO;
+import com.westlakers.leap_bff.dtos.CurrentUserResponse;
 import com.westlakers.leap_bff.dtos.LoginRequest;
 import com.westlakers.leap_bff.dtos.RegisterRequest;
 import com.westlakers.leap_bff.dtos.RegisterResponse;
-import com.westlakers.leap_bff.dtos.UserProfileDTO;
+import com.westlakers.leap_bff.entities.Account;
 import com.westlakers.leap_bff.entities.User;
 import com.westlakers.leap_bff.entities.UserCredentials;
 import com.westlakers.leap_bff.exceptions.ApiException;
 import com.westlakers.leap_bff.exceptions.ErrorCode;
+import com.westlakers.leap_bff.mappers.AccountMapper;
+import com.westlakers.leap_bff.mappers.AccountStatusMapper;
+import com.westlakers.leap_bff.mappers.AccountTypeMapper;
 import com.westlakers.leap_bff.mappers.UserCredentialsMapper;
 import com.westlakers.leap_bff.mappers.UserMapper;
 import com.westlakers.leap_bff.security.JwtService;
@@ -17,6 +22,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Locale;
 
 @Service
@@ -25,12 +31,15 @@ public class AuthService {
 
     private static final long DEFAULT_USER_STATUS_ID = 1L;
     private static final long DEFAULT_ROLE_ID = 2L;
+    private static final long DEFAULT_ACCOUNT_STATUS_ID = 1L; // OPEN
 
     private final UserMapper userMapper;
     private final UserCredentialsMapper userCredentialsMapper;
+    private final AccountMapper accountMapper;
+    private final AccountStatusMapper accountStatusMapper;
+    private final AccountTypeMapper accountTypeMapper;
     private final PasswordEncoder passwordEncoder;
     private final JwtService jwtService;
-    private final UserService userService;
 
     @Transactional
     public RegisterResponse register(RegisterRequest request) {
@@ -38,6 +47,10 @@ public class AuthService {
 
         if (userCredentialsMapper.findByEmail(normalizedEmail) != null) {
             throw new ApiException(ErrorCode.INVALID_INPUT, "An account with that email already exists");
+        }
+
+        if (accountTypeMapper.findById(request.getAccountTypeId()) == null) {
+            throw new ApiException(ErrorCode.INVALID_ACCOUNT_TYPE, "Account type not found with id: " + request.getAccountTypeId());
         }
 
         User user = new User();
@@ -67,6 +80,18 @@ public class AuthService {
             throw new ApiException(ErrorCode.CREATION_FAILED, "Failed to create user credentials");
         }
 
+        // Open the user's first trading account in the same transaction so registration is all-or-nothing
+        Account account = new Account();
+        account.setUserId(user.getUserId());
+        account.setAccountTypeId(request.getAccountTypeId());
+        account.setAccountStatusId(DEFAULT_ACCOUNT_STATUS_ID);
+        account.setSettledCash(request.getSettledCash());
+
+        int accountInsert = accountMapper.insert(account);
+        if (accountInsert == 0) {
+            throw new ApiException(ErrorCode.ACCOUNT_CREATION_FAILED);
+        }
+
         return new RegisterResponse(user.getUserId(), normalizedEmail, normalizedEmail);
     }
 
@@ -87,12 +112,29 @@ public class AuthService {
     }
 
     @Transactional(readOnly = true)
-    public UserProfileDTO getCurrentUserProfile(String email) {
+    public CurrentUserResponse getCurrentUser(String email) {
         UserCredentials credentials = userCredentialsMapper.findByEmail(normalizeEmail(email));
         if (credentials == null || !credentials.isActive()) {
-            throw new ApiException(ErrorCode.USER_NOT_FOUND);
+            throw new ApiException(ErrorCode.UNAUTHORIZED);
         }
-        return userService.getUserProfile(credentials.getUserId());
+
+        User user = userMapper.findById(credentials.getUserId());
+        if (user == null) {
+            throw new ApiException(ErrorCode.USER_NOT_FOUND, "User not found with id: " + credentials.getUserId());
+        }
+
+        // A newly registered user may not have an account yet, so return an empty list instead of throwing
+        List<AccountDTO> accounts = accountMapper.findByUserId(user.getUserId()).stream()
+                .map(account -> AccountDTO.fromEntity(account, accountStatusMapper.findById(account.getAccountStatusId())))
+                .toList();
+
+        return new CurrentUserResponse(
+                user.getUserId(),
+                credentials.getEmail(),
+                user.getFirstName(),
+                user.getLastName(),
+                credentials.getRoleId(),
+                accounts);
     }
 
     private String normalizeEmail(String email) {

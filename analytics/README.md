@@ -16,6 +16,8 @@ cp .env.example .env
 ```
 
 ### 3. Run Pipelines
+Run commands from the `analytics` directory:
+
 ```bash
 # Run all pipelines
 python main.py

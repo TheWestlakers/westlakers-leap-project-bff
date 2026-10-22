@@ -27,6 +27,7 @@ public enum ErrorCode {
     INVALID_ACCOUNT_TYPE("ERR_018", HttpStatus.BAD_REQUEST, "Invalid account type"),
     EMPTY_HOLDINGS_LIST("ERR_019", HttpStatus.BAD_REQUEST, "Holdings list is empty"),
     EMPTY_RESULTS("ERR_020", HttpStatus.BAD_REQUEST, "No results found"),
+    MARKET_CLOSED("ERR_021", HttpStatus.CONFLICT, "The exchange is currently closed"),
 
     // Operation/Server Errors (500)
     CREATION_FAILED("ERR_030", HttpStatus.INTERNAL_SERVER_ERROR, "Failed to create resource"),
@@ -44,6 +45,9 @@ public enum ErrorCode {
     UNAUTHORIZED("ERR_040", HttpStatus.UNAUTHORIZED, "User is not authenticated"),
     FORBIDDEN("ERR_041", HttpStatus.FORBIDDEN, "User does not have permission"),
     INVALID_CREDENTIALS("ERR_042", HttpStatus.UNAUTHORIZED, "Invalid credentials provided"),
+
+    // External Service Errors (503)
+    AI_ASSISTANT_UNAVAILABLE("ERR_050", HttpStatus.SERVICE_UNAVAILABLE, "AI assistant is unavailable"),
 
     // Generic Error
     INTERNAL_SERVER_ERROR("ERR_999", HttpStatus.INTERNAL_SERVER_ERROR, "An internal server error occurred");

@@ -4,6 +4,7 @@ import com.westlakers.leap_bff.dtos.*;
 import com.westlakers.leap_bff.entities.*;
 import com.westlakers.leap_bff.mappers.*;
 import com.westlakers.leap_bff.exceptions.ApiException;
+import com.westlakers.leap_bff.exceptions.ErrorCode;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.InjectMocks;
@@ -42,6 +43,9 @@ class OrderServiceTest {
 
     @Mock
     private OrderRejectionService orderRejectionService;
+
+    @Mock
+    private MarketHoursService marketHoursService;
 
     @InjectMocks
     private OrderService orderService;
@@ -119,6 +123,9 @@ class OrderServiceTest {
         testTradeExecutionResponse.setOrderId(1L);
         testTradeExecutionResponse.setAccountId(1L);
         testTradeExecutionResponse.setInstrumentId(1L);
+
+        when(instrumentMapper.findById(1L)).thenReturn(testInstrument);
+        doNothing().when(marketHoursService).requireOpen(1L);
     }
 
     @Test
@@ -138,12 +145,15 @@ class OrderServiceTest {
     }
 
     @Test
-    void testGetAllOrders_EmptyList_ThrowsException() {
+    void testGetAllOrders_EmptyList_ReturnsEmptyList() {
         // Arrange
         when(orderMapper.findAll()).thenReturn(Collections.emptyList());
 
-        // Act & Assert
-        assertThrows(ApiException.class, () -> orderService.getAllOrders());
+        // Act
+        List<OrderDTO> result = orderService.getAllOrders();
+
+        // Assert
+        assertTrue(result.isEmpty());
     }
 
     @Test
@@ -175,6 +185,7 @@ class OrderServiceTest {
     void testGetOrdersByAccountId_Success() {
         // Arrange
         List<Order> orders = Arrays.asList(testOrder);
+        when(accountMapper.findById(1L)).thenReturn(new Account());
         when(orderMapper.findByAccountId(1L)).thenReturn(orders);
         when(orderStatusMapper.findById(1L)).thenReturn(testStatus);
 
@@ -188,12 +199,27 @@ class OrderServiceTest {
     }
 
     @Test
-    void testGetOrdersByAccountId_NoOrders_ThrowsException() {
+    void testGetOrdersByAccountId_NoOrders_ReturnsEmptyList() {
         // Arrange
-        when(orderMapper.findByAccountId(999L)).thenReturn(Collections.emptyList());
+        when(accountMapper.findById(1L)).thenReturn(new Account());
+        when(orderMapper.findByAccountId(1L)).thenReturn(Collections.emptyList());
+
+        // Act
+        List<OrderDTO> result = orderService.getOrdersByAccountId(1L);
+
+        // Assert
+        assertTrue(result.isEmpty());
+    }
+
+    @Test
+    void testGetOrdersByAccountId_AccountNotFound_ThrowsException() {
+        // Arrange
+        when(accountMapper.findById(999L)).thenReturn(null);
 
         // Act & Assert
-        assertThrows(ApiException.class, () -> orderService.getOrdersByAccountId(999L));
+        ApiException exception = assertThrows(ApiException.class, () -> orderService.getOrdersByAccountId(999L));
+        assertEquals(ErrorCode.ACCOUNT_NOT_FOUND, exception.getErrorCode());
+        verify(orderMapper, never()).findByAccountId(any());
     }
 
     @Test
@@ -335,6 +361,7 @@ class OrderServiceTest {
         // Arrange
         when(accountMapper.findById(1L)).thenReturn(testAccount);
         when(instrumentMapper.findById(1L)).thenReturn(testInstrument);
+        doNothing().when(marketHoursService).requireOpen(1L);
         when(orderMapper.insert(any())).thenReturn(1);
         when(orderStatusMapper.findById(1L)).thenReturn(testStatus);
 
@@ -356,6 +383,7 @@ class OrderServiceTest {
         testMarketOrderRequest.setSide("SELL");
         when(accountMapper.findById(1L)).thenReturn(testAccount);
         when(instrumentMapper.findById(1L)).thenReturn(testInstrument);
+        doNothing().when(marketHoursService).requireOpen(1L);
         when(holdingMapper.findByAccountAndInstrument(1L, 1L)).thenReturn(testHolding);
         when(orderMapper.insert(any())).thenReturn(1);
         when(orderStatusMapper.findById(1L)).thenReturn(testStatus);
@@ -421,6 +449,7 @@ class OrderServiceTest {
         // Arrange
         when(accountMapper.findById(1L)).thenReturn(testAccount);
         when(instrumentMapper.findById(1L)).thenReturn(testInstrument);
+        doNothing().when(marketHoursService).requireOpen(1L);
         when(orderMapper.insert(any())).thenReturn(1);
         when(orderStatusMapper.findById(1L)).thenReturn(testStatus);
 
@@ -444,6 +473,7 @@ class OrderServiceTest {
         testLimitOrderRequest.setLimitPrice(new BigDecimal("160.00"));
         when(accountMapper.findById(1L)).thenReturn(testAccount);
         when(instrumentMapper.findById(1L)).thenReturn(testInstrument);
+        doNothing().when(marketHoursService).requireOpen(1L);
         when(holdingMapper.findByAccountAndInstrument(1L, 1L)).thenReturn(testHolding);
         when(orderMapper.insert(any())).thenReturn(1);
         when(orderStatusMapper.findById(1L)).thenReturn(testStatus);
@@ -489,6 +519,36 @@ class OrderServiceTest {
         // Act & Assert
         assertThrows(ApiException.class, () -> orderService.createLimitTrade(testLimitOrderRequest));
         verify(orderMapper, never()).insert(any());
+    }
+
+    @Test
+    void testCreateLimitTrade_LimitPriceBelowMinimum_ThrowsException() {
+        // Arrange
+        testLimitOrderRequest.setLimitPrice(new BigDecimal("0.00009"));
+        when(accountMapper.findById(1L)).thenReturn(testAccount);
+        when(instrumentMapper.findById(1L)).thenReturn(testInstrument);
+
+        // Act & Assert
+        assertThrows(ApiException.class, () -> orderService.createLimitTrade(testLimitOrderRequest));
+        verify(orderMapper, never()).insert(any());
+    }
+
+    @Test
+    void testCreateLimitTrade_LimitPriceAtMinimum_Success() {
+        // Arrange
+        testLimitOrderRequest.setLimitPrice(new BigDecimal("0.0001"));
+        when(accountMapper.findById(1L)).thenReturn(testAccount);
+        when(instrumentMapper.findById(1L)).thenReturn(testInstrument);
+        when(orderMapper.insert(any())).thenReturn(1);
+        when(orderStatusMapper.findById(1L)).thenReturn(testStatus);
+
+        // Act
+        TradeExecutionResponse result = orderService.createLimitTrade(testLimitOrderRequest);
+
+        // Assert
+        assertNotNull(result);
+        assertEquals(new BigDecimal("0.0001"), result.getLimitPrice());
+        verify(orderMapper, times(1)).insert(any());
     }
 
     @Test

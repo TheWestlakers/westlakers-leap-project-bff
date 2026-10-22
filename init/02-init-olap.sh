@@ -58,18 +58,32 @@ CREATE TABLE IF NOT EXISTS dim_accounts (
 -- STAGING TABLES
 -- ============================================================================
 
+CREATE TABLE IF NOT EXISTS order_status (
+    order_status_id VARCHAR(50) PRIMARY KEY,
+    status_name VARCHAR(50) NOT NULL UNIQUE
+);
+
+INSERT INTO order_status (order_status_id, status_name) VALUES
+    ('1', 'PENDING'),
+    ('2', 'EXECUTED'),
+    ('3', 'CANCELLED'),
+    ('4', 'REJECTED')
+ON CONFLICT (order_status_id) DO UPDATE SET status_name = EXCLUDED.status_name;
+
 -- Raw denormalized trading data (staging layer)
 -- Populated directly from source database with all individual trades
 -- Acts as the master data source for all downstream aggregations
 CREATE TABLE IF NOT EXISTS stg_trading_volumes (
     staging_id SERIAL PRIMARY KEY,
     order_id BIGINT NOT NULL,
+    order_status_id VARCHAR(50) REFERENCES order_status(order_status_id),
     account_id BIGINT NOT NULL,
     instrument_id INT NOT NULL,
     user_id BIGINT NOT NULL,
     side VARCHAR(10),
     quantity DECIMAL(18,8),
     limit_price DECIMAL(18,8),
+    execution_price DECIMAL(18,8),
     executed_at TIMESTAMP,
     account_type VARCHAR(50),
     first_name VARCHAR(255),
@@ -81,6 +95,10 @@ CREATE TABLE IF NOT EXISTS stg_trading_volumes (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     UNIQUE(order_id)
 );
+
+ALTER TABLE stg_trading_volumes
+    ADD COLUMN IF NOT EXISTS order_status_id VARCHAR(50)
+    REFERENCES order_status(order_status_id);
 
 -- ============================================================================
 -- FACT/AGGREGATE TABLES

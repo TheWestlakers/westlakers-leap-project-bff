@@ -16,10 +16,10 @@ import com.westlakers.leap_bff.security.JwtService;
 import com.westlakers.leap_bff.dtos.LoginRequest;
 import com.westlakers.leap_bff.dtos.LoginResponse;
 import com.westlakers.leap_bff.dtos.RefreshTokenRequest;
-import com.westlakers.leap_bff.dtos.UserProfileDTO;
 import com.westlakers.leap_bff.exceptions.ApiException;
 import com.westlakers.leap_bff.exceptions.ErrorCode;
-import java.security.Principal;
+import com.westlakers.leap_bff.dtos.CurrentUserResponse;
+import org.springframework.security.core.Authentication;
 
 @RequiredArgsConstructor
 @RestController
@@ -43,14 +43,17 @@ public class AuthController {
         return new LoginResponse(jwtService.generateToken(email), request.getRefreshToken());
     }
 
-    @GetMapping("/me")
-    public UserProfileDTO currentUser(Principal principal) {
-        return authService.getCurrentUserProfile(principal.getName());
-    }
-
     @PostMapping("/register")
     public RegisterResponse register(@Valid @RequestBody RegisterRequest request) {
         return authService.register(request);
+    }
+
+    @GetMapping("/me")
+    public CurrentUserResponse me(Authentication authentication) {
+        if (authentication == null || authentication.getName() == null) {
+            throw new ApiException(ErrorCode.UNAUTHORIZED);
+        }
+        return authService.getCurrentUser(authentication.getName());
     }
 
     @GetMapping("/validate")

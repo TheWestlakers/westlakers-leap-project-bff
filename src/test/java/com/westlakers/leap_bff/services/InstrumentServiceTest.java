@@ -59,14 +59,15 @@ class InstrumentServiceTest {
     }
 
     @Test
-    void testGetAllInstruments_EmptyList_ThrowsNotFound() {
+    void testGetAllInstruments_EmptyList_ReturnsEmptyList() {
         // Arrange
         when(instrumentMapper.findAll()).thenReturn(Collections.emptyList());
 
-        // Act & Assert
-        ApiException exception = assertThrows(ApiException.class,
-            () -> instrumentService.getAllInstruments());
-        assertEquals(ErrorCode.EMPTY_RESULTS, exception.getErrorCode());
+        // Act
+        List<Instrument> result = instrumentService.getAllInstruments();
+
+        // Assert
+        assertTrue(result.isEmpty());
     }
 
     @Test

@@ -38,11 +38,13 @@ public class OrderService {
     private final HoldingService holdingService;
     private final HoldingMapper holdingMapper;
     private final OrderRejectionService orderRejectionService;
+    private final MarketHoursService marketHoursService;
 
     public OrderService(OrderMapper orderMapper, OrderStatusMapper orderStatusMapper, 
                         AccountMapper accountMapper, InstrumentMapper instrumentMapper,
                         HoldingService holdingService, HoldingMapper holdingMapper,
-                        OrderRejectionService orderRejectionService) {
+                        OrderRejectionService orderRejectionService,
+                        MarketHoursService marketHoursService) {
         this.orderMapper = orderMapper;
         this.orderStatusMapper = orderStatusMapper;
         this.accountMapper = accountMapper;
@@ -50,15 +52,13 @@ public class OrderService {
         this.holdingService = holdingService;
         this.holdingMapper = holdingMapper;
         this.orderRejectionService = orderRejectionService;
+        this.marketHoursService = marketHoursService;
     }
 
     @Transactional(readOnly = true)
     public List<OrderDTO> getAllOrders() {
         List<Order> orders = this.orderMapper.findAll();
 
-        if(orders.size() == 0) {
-            throw new ApiException(ErrorCode.EMPTY_RESULTS);
-        }
         // Convert Order entities to DTOs, fetching status for each order
         return orders.stream()
                 .map(order -> {
@@ -82,11 +82,13 @@ public class OrderService {
 
     @Transactional(readOnly = true)
     public List<OrderDTO> getOrdersByAccountId(Long accountId) {
+        // A missing account is a 404; an existing account with no orders is an empty list
+        if(this.accountMapper.findById(accountId) == null) {
+            throw new ApiException(ErrorCode.ACCOUNT_NOT_FOUND, "Account not found with id: " + accountId);
+        }
+
         List<Order> orders = this.orderMapper.findByAccountId(accountId);
 
-        if(orders.size() == 0) {
-            throw new ApiException(ErrorCode.ORDER_NOT_FOUND, "No orders found for account id: " + accountId);
-        }
         // Convert Order entities to DTOs, fetching status for each order
         return orders.stream()
                 .map(order -> {
@@ -221,6 +223,8 @@ public class OrderService {
         if (instrument == null) {
             throw new ApiException(ErrorCode.INSTRUMENT_NOT_FOUND, "Instrument not found with id: " + request.getInstrumentId());
         }
+
+        marketHoursService.requireOpen(instrument.getMarketId());
         
         // Validate account has sufficient funds based on estimated price
         validateAccountBalance(account, request.getSide(), request.getQuantity(), request.getEstimatedPrice());
@@ -270,6 +274,8 @@ public class OrderService {
         if (instrument == null) {
             throw new ApiException(ErrorCode.INSTRUMENT_NOT_FOUND, "Instrument not found with id: " + request.getInstrumentId());
         }
+
+        marketHoursService.requireOpen(instrument.getMarketId());
         
         // Validate limit price makes sense for the side
         validateLimitPriceForSide(request.getSide(), request.getLimitPrice());
@@ -344,7 +350,7 @@ public class OrderService {
         if (request.getQuantity() == null || request.getQuantity().compareTo(BigDecimal.ZERO) <= 0) {
             throw new ApiException(ErrorCode.INVALID_QUANTITY);
         }
-        if (request.getLimitPrice() == null || request.getLimitPrice().compareTo(BigDecimal.ZERO) <= 0) {
+        if (request.getLimitPrice() == null || request.getLimitPrice().compareTo(new BigDecimal("0.0001")) < 0) {
             throw new ApiException(ErrorCode.INVALID_PRICE);
         }
     }
@@ -383,8 +389,8 @@ public class OrderService {
     }
 
     private void validateLimitPriceForSide(String side, BigDecimal limitPrice) {
-        if (limitPrice == null || limitPrice.compareTo(BigDecimal.ZERO) <= 0) {
-            throw new ApiException(ErrorCode.INVALID_PRICE, "Limit price must be greater than 0");
+        if (limitPrice == null || limitPrice.compareTo(new BigDecimal("0.0001")) < 0) {
+            throw new ApiException(ErrorCode.INVALID_PRICE, "Limit price must be at least 0.0001");
         }
     }
 
@@ -462,6 +468,13 @@ public class OrderService {
             throw new ApiException(ErrorCode.ACCOUNT_NOT_FOUND, "Account not found with id: " + order.getAccountId());
         }
         validateAccountStatus(account);
+
+        Instrument instrument = instrumentMapper.findById(order.getInstrumentId());
+        if (instrument == null) {
+            throw new ApiException(ErrorCode.INSTRUMENT_NOT_FOUND,
+                    "Instrument not found with id: " + order.getInstrumentId());
+        }
+        marketHoursService.requireOpen(instrument.getMarketId());
         
         // Validate order is in PENDING state (1L) before execution
         if (order.getStatus() != 1L) {

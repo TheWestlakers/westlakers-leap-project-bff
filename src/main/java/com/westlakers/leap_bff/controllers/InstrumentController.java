@@ -16,6 +16,7 @@ import org.springframework.web.bind.annotation.PathVariable;
 import com.westlakers.leap_bff.entities.Instrument;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.PutMapping;
 
 
@@ -39,6 +40,12 @@ public class InstrumentController {
     @GetMapping("/instruments")
     public ResponseEntity<List<Instrument>> getAllInstruments() {
         return new ResponseEntity<>(this.instrumentService.getAllInstruments(), HttpStatus.OK);
+    }
+
+    @GetMapping("/instruments/search")
+    public ResponseEntity<List<Instrument>> searchInstruments(
+            @RequestParam(name = "q") String query) {
+        return new ResponseEntity<>(this.instrumentService.searchInstruments(query), HttpStatus.OK);
     }
 
     @GetMapping("/instruments/{id}")
