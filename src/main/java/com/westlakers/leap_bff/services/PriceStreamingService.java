@@ -256,8 +256,8 @@ public class PriceStreamingService {
             throw new IllegalArgumentException("Ticker cannot be empty");
         }
         String normalized = ticker.trim().toUpperCase(Locale.ROOT);
-        // Yahoo Finance identifies forex pairs with a six-letter pair plus the =X suffix (for example EURUSD=X).
-        if (!normalized.matches("[A-Z0-9._-]{1,20}") && !normalized.matches("[A-Z]{6}=X")) {
+        // Yahoo Finance identifies forex pairs with three- or six-letter symbols plus the =X suffix.
+        if (!normalized.matches("[A-Z0-9._-]{1,20}") && !normalized.matches("[A-Z]{3,6}=X")) {
             throw new IllegalArgumentException("Invalid ticker format: " + ticker);
         }
         return normalized;

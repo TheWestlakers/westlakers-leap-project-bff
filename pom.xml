@@ -130,6 +130,11 @@
 			<groupId>redis.clients</groupId>
 			<artifactId>jedis</artifactId>
 		</dependency>
+		<!-- Auto-configures RestClient.Builder (split out of starter-web in Boot 4) -->
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-restclient</artifactId>
+		</dependency>
 		<!-- HTTP client for yfinance API calls -->
 		<dependency>
 			<groupId>org.apache.httpcomponents.client5</groupId>
