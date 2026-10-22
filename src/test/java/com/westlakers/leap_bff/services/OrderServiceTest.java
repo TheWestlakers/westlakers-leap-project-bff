@@ -44,6 +44,9 @@ class OrderServiceTest {
     @Mock
     private OrderRejectionService orderRejectionService;
 
+    @Mock
+    private MarketHoursService marketHoursService;
+
     @InjectMocks
     private OrderService orderService;
 
@@ -120,6 +123,9 @@ class OrderServiceTest {
         testTradeExecutionResponse.setOrderId(1L);
         testTradeExecutionResponse.setAccountId(1L);
         testTradeExecutionResponse.setInstrumentId(1L);
+
+        when(instrumentMapper.findById(1L)).thenReturn(testInstrument);
+        doNothing().when(marketHoursService).requireOpen(1L);
     }
 
     @Test
@@ -355,6 +361,7 @@ class OrderServiceTest {
         // Arrange
         when(accountMapper.findById(1L)).thenReturn(testAccount);
         when(instrumentMapper.findById(1L)).thenReturn(testInstrument);
+        doNothing().when(marketHoursService).requireOpen(1L);
         when(orderMapper.insert(any())).thenReturn(1);
         when(orderStatusMapper.findById(1L)).thenReturn(testStatus);
 
@@ -376,6 +383,7 @@ class OrderServiceTest {
         testMarketOrderRequest.setSide("SELL");
         when(accountMapper.findById(1L)).thenReturn(testAccount);
         when(instrumentMapper.findById(1L)).thenReturn(testInstrument);
+        doNothing().when(marketHoursService).requireOpen(1L);
         when(holdingMapper.findByAccountAndInstrument(1L, 1L)).thenReturn(testHolding);
         when(orderMapper.insert(any())).thenReturn(1);
         when(orderStatusMapper.findById(1L)).thenReturn(testStatus);
@@ -441,6 +449,7 @@ class OrderServiceTest {
         // Arrange
         when(accountMapper.findById(1L)).thenReturn(testAccount);
         when(instrumentMapper.findById(1L)).thenReturn(testInstrument);
+        doNothing().when(marketHoursService).requireOpen(1L);
         when(orderMapper.insert(any())).thenReturn(1);
         when(orderStatusMapper.findById(1L)).thenReturn(testStatus);
 
@@ -464,6 +473,7 @@ class OrderServiceTest {
         testLimitOrderRequest.setLimitPrice(new BigDecimal("160.00"));
         when(accountMapper.findById(1L)).thenReturn(testAccount);
         when(instrumentMapper.findById(1L)).thenReturn(testInstrument);
+        doNothing().when(marketHoursService).requireOpen(1L);
         when(holdingMapper.findByAccountAndInstrument(1L, 1L)).thenReturn(testHolding);
         when(orderMapper.insert(any())).thenReturn(1);
         when(orderStatusMapper.findById(1L)).thenReturn(testStatus);

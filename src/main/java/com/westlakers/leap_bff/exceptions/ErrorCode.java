@@ -27,6 +27,7 @@ public enum ErrorCode {
     INVALID_ACCOUNT_TYPE("ERR_018", HttpStatus.BAD_REQUEST, "Invalid account type"),
     EMPTY_HOLDINGS_LIST("ERR_019", HttpStatus.BAD_REQUEST, "Holdings list is empty"),
     EMPTY_RESULTS("ERR_020", HttpStatus.BAD_REQUEST, "No results found"),
+    MARKET_CLOSED("ERR_021", HttpStatus.CONFLICT, "The exchange is currently closed"),
 
     // Operation/Server Errors (500)
     CREATION_FAILED("ERR_030", HttpStatus.INTERNAL_SERVER_ERROR, "Failed to create resource"),
