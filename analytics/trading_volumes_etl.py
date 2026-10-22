@@ -271,6 +271,7 @@ class TradingVolumesETL:
         
         This is the single source of truth for all downstream aggregations.
         Contains all individual trades with denormalized dimensions.
+        Staging created_at preserves the source order's placed_at timestamp.
         
         Args:
             orders: List of order records from source database
@@ -283,8 +284,8 @@ class TradingVolumesETL:
                 INSERT INTO stg_trading_volumes 
                 (order_id, order_status_id, account_id, instrument_id, user_id, side, quantity, limit_price, execution_price,
                  executed_at, account_type, first_name, last_name, instrument_code, 
-                 instrument_name, instrument_type, client_segment)
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                 instrument_name, instrument_type, client_segment, created_at)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                 ON CONFLICT (order_id) DO UPDATE SET
                     order_status_id = EXCLUDED.order_status_id,
                     account_id = EXCLUDED.account_id,
@@ -301,7 +302,8 @@ class TradingVolumesETL:
                     instrument_code = EXCLUDED.instrument_code,
                     instrument_name = EXCLUDED.instrument_name,
                     instrument_type = EXCLUDED.instrument_type,
-                    client_segment = EXCLUDED.client_segment
+                        client_segment = EXCLUDED.client_segment,
+                        created_at = EXCLUDED.created_at
             """
             
             count = 0
@@ -323,7 +325,8 @@ class TradingVolumesETL:
                     order['instrument_code'],
                     order['instrument_name'],
                     'EQUITY',  # Default type - can be enhanced with real data
-                    'STANDARD'  # Default segment - can be enhanced with real data
+                    'STANDARD',  # Default segment - can be enhanced with real data
+                    order['placed_at']
                 )
                 
                 if self.analytics_db.execute_query(insert_query, params):
