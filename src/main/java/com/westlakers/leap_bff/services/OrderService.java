@@ -224,7 +224,7 @@ public class OrderService {
             throw new ApiException(ErrorCode.INSTRUMENT_NOT_FOUND, "Instrument not found with id: " + request.getInstrumentId());
         }
 
-        marketHoursService.requireOpen(instrument.getMarketId());
+        marketHoursService.requireOpen(instrument.getMarketId(), instrument.getAssetClassId());
         
         // Validate account has sufficient funds based on estimated price
         validateAccountBalance(account, request.getSide(), request.getQuantity(), request.getEstimatedPrice());
@@ -275,7 +275,7 @@ public class OrderService {
             throw new ApiException(ErrorCode.INSTRUMENT_NOT_FOUND, "Instrument not found with id: " + request.getInstrumentId());
         }
 
-        marketHoursService.requireOpen(instrument.getMarketId());
+        marketHoursService.requireOpen(instrument.getMarketId(), instrument.getAssetClassId());
         
         // Validate limit price makes sense for the side
         validateLimitPriceForSide(request.getSide(), request.getLimitPrice());
@@ -474,7 +474,7 @@ public class OrderService {
             throw new ApiException(ErrorCode.INSTRUMENT_NOT_FOUND,
                     "Instrument not found with id: " + order.getInstrumentId());
         }
-        marketHoursService.requireOpen(instrument.getMarketId());
+        marketHoursService.requireOpen(instrument.getMarketId(), instrument.getAssetClassId());
         
         // Validate order is in PENDING state (1L) before execution
         if (order.getStatus() != 1L) {

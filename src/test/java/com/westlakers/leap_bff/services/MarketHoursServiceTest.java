@@ -60,6 +60,47 @@ class MarketHoursServiceTest {
         assertEquals(ErrorCode.MARKET_CLOSED, exception.getErrorCode());
     }
 
+    @Test
+    void requireOpen_acceptsCryptoMarketOutsideWeekdaySession() {
+        market = new Market(2L, "Crypto", "CRYPTO", "UTC",
+                LocalTime.MIDNIGHT, LocalTime.MIDNIGHT);
+        when(marketMapper.findById(2L)).thenReturn(market);
+        MarketHoursService service = serviceAt("2026-10-17T15:00:00Z");
+
+        assertDoesNotThrow(() -> service.requireOpen(2L));
+    }
+
+    @Test
+    void requireOpen_acceptsCryptoAssetMappedToStockMarket() {
+        MarketHoursService service = serviceAt("2026-10-17T15:00:00Z");
+
+        assertDoesNotThrow(() -> service.requireOpen(1L, 3L));
+    }
+
+        @Test
+        void requireOpen_acceptsForexFromSundayOpenThroughThursday() {
+        market = new Market(5L, "Foreign Exchange Market", "FOREX",
+            "America/New_York", LocalTime.of(17, 0), LocalTime.of(17, 0));
+        when(marketMapper.findById(5L)).thenReturn(market);
+
+        assertDoesNotThrow(() -> serviceAt("2026-10-18T21:00:00Z").requireOpen(5L));
+        assertDoesNotThrow(() -> serviceAt("2026-10-22T20:00:00Z").requireOpen(5L));
+        }
+
+        @Test
+        void requireOpen_rejectsForexBeforeSundayOpenAndAtFridayClose() {
+        market = new Market(5L, "Foreign Exchange Market", "FOREX",
+                "UTC", null, null);
+        when(marketMapper.findById(5L)).thenReturn(market);
+
+        assertThrows(ApiException.class,
+            () -> serviceAt("2026-10-18T20:59:59Z").requireOpen(5L));
+        assertThrows(ApiException.class,
+            () -> serviceAt("2026-10-23T21:00:00Z").requireOpen(5L));
+        assertThrows(ApiException.class,
+            () -> serviceAt("2026-10-24T15:00:00Z").requireOpen(5L));
+        }
+
     private MarketHoursService serviceAt(String instant) {
         Clock clock = Clock.fixed(Instant.parse(instant), ZoneOffset.UTC);
         return new MarketHoursService(marketMapper, clock);
