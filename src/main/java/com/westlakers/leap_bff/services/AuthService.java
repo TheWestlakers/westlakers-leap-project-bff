@@ -3,6 +3,7 @@ package com.westlakers.leap_bff.services;
 import com.westlakers.leap_bff.dtos.LoginRequest;
 import com.westlakers.leap_bff.dtos.RegisterRequest;
 import com.westlakers.leap_bff.dtos.RegisterResponse;
+import com.westlakers.leap_bff.dtos.UserProfileDTO;
 import com.westlakers.leap_bff.entities.User;
 import com.westlakers.leap_bff.entities.UserCredentials;
 import com.westlakers.leap_bff.exceptions.ApiException;
@@ -29,6 +30,7 @@ public class AuthService {
     private final UserCredentialsMapper userCredentialsMapper;
     private final PasswordEncoder passwordEncoder;
     private final JwtService jwtService;
+    private final UserService userService;
 
     @Transactional
     public RegisterResponse register(RegisterRequest request) {
@@ -82,6 +84,15 @@ public class AuthService {
         }
 
         return jwtService.generateToken(credentials.getEmail());
+    }
+
+    @Transactional(readOnly = true)
+    public UserProfileDTO getCurrentUserProfile(String email) {
+        UserCredentials credentials = userCredentialsMapper.findByEmail(normalizeEmail(email));
+        if (credentials == null || !credentials.isActive()) {
+            throw new ApiException(ErrorCode.USER_NOT_FOUND);
+        }
+        return userService.getUserProfile(credentials.getUserId());
     }
 
     private String normalizeEmail(String email) {
