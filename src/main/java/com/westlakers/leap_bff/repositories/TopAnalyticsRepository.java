@@ -12,35 +12,49 @@ import com.westlakers.leap_bff.dtos.TopInvestorDTO;
 @Repository
 public class TopAnalyticsRepository {
 
+    private static final String INVESTORS_FROM_AND_GROUP_BY = """
+            FROM fact_trading_volumes_hourly ftv
+            JOIN dim_clients dc ON dc.client_key = ftv.client_key
+            GROUP BY dc.user_id, dc.first_name, dc.last_name, dc.client_segment
+            """;
+
+    private static final String INSTRUMENTS_FROM_AND_GROUP_BY = """
+            FROM fact_trading_volumes_hourly ftv
+            JOIN dim_instruments di ON di.instrument_key = ftv.instrument_key
+            GROUP BY di.instrument_id, di.instrument_code, di.instrument_name, di.instrument_type
+            """;
+
     private static final String FIND_TOP_INVESTORS = """
             SELECT dc.user_id AS investor_id,
                    dc.first_name,
                    dc.last_name,
                    dc.client_segment,
-                   SUM(aca.total_trades)::BIGINT AS total_trades,
-                   SUM(aca.total_volume) AS total_volume,
-                   SUM(aca.total_value) AS total_value
-            FROM agg_client_activity_daily aca
-            JOIN dim_clients dc ON dc.client_key = aca.client_key
-            GROUP BY dc.user_id, dc.first_name, dc.last_name, dc.client_segment
+                   SUM(ftv.trade_count)::BIGINT AS total_trades,
+                   SUM(ftv.total_volume) AS total_volume,
+                   SUM(ftv.total_value) AS total_value
+            """ + INVESTORS_FROM_AND_GROUP_BY + """
             ORDER BY total_value DESC NULLS LAST, total_trades DESC, dc.user_id
-            LIMIT ?
+            LIMIT ? OFFSET ?
             """;
+
+    private static final String COUNT_INVESTORS =
+            "SELECT COUNT(*) FROM (SELECT 1 " + INVESTORS_FROM_AND_GROUP_BY + ") grouped";
 
     private static final String FIND_TOP_INSTRUMENTS = """
             SELECT di.instrument_id,
                    di.instrument_code,
                    di.instrument_name,
                    di.instrument_type,
-                   SUM(aia.total_trades)::BIGINT AS total_trades,
-                   SUM(aia.total_volume) AS total_volume,
-                   SUM(aia.total_value) AS total_value
-            FROM agg_instrument_activity aia
-            JOIN dim_instruments di ON di.instrument_key = aia.instrument_key
-            GROUP BY di.instrument_id, di.instrument_code, di.instrument_name, di.instrument_type
+                   SUM(ftv.trade_count)::BIGINT AS total_trades,
+                   SUM(ftv.total_volume) AS total_volume,
+                   SUM(ftv.total_value) AS total_value
+            """ + INSTRUMENTS_FROM_AND_GROUP_BY + """
             ORDER BY total_value DESC NULLS LAST, total_trades DESC, di.instrument_id
-            LIMIT ?
+            LIMIT ? OFFSET ?
             """;
+
+    private static final String COUNT_INSTRUMENTS =
+            "SELECT COUNT(*) FROM (SELECT 1 " + INSTRUMENTS_FROM_AND_GROUP_BY + ") grouped";
 
     private final JdbcTemplate analyticsJdbcTemplate;
 
@@ -48,7 +62,7 @@ public class TopAnalyticsRepository {
         this.analyticsJdbcTemplate = analyticsJdbcTemplate;
     }
 
-    public List<TopInvestorDTO> findTopInvestors(int limit) {
+    public List<TopInvestorDTO> findTopInvestors(int limit, int offset) {
         return analyticsJdbcTemplate.query(
                 FIND_TOP_INVESTORS,
                 (resultSet, rowNum) -> new TopInvestorDTO(
@@ -59,10 +73,16 @@ public class TopAnalyticsRepository {
                         resultSet.getLong("total_trades"),
                         resultSet.getBigDecimal("total_volume"),
                         resultSet.getBigDecimal("total_value")),
-                limit);
+                limit,
+                offset);
     }
 
-    public List<TopInstrumentDTO> findTopInstruments(int limit) {
+    public long countInvestors() {
+        Long count = analyticsJdbcTemplate.queryForObject(COUNT_INVESTORS, Long.class);
+        return count == null ? 0 : count;
+    }
+
+    public List<TopInstrumentDTO> findTopInstruments(int limit, int offset) {
         return analyticsJdbcTemplate.query(
                 FIND_TOP_INSTRUMENTS,
                 (resultSet, rowNum) -> new TopInstrumentDTO(
@@ -73,6 +93,12 @@ public class TopAnalyticsRepository {
                         resultSet.getLong("total_trades"),
                         resultSet.getBigDecimal("total_volume"),
                         resultSet.getBigDecimal("total_value")),
-                limit);
+                limit,
+                offset);
+    }
+
+    public long countInstruments() {
+        Long count = analyticsJdbcTemplate.queryForObject(COUNT_INSTRUMENTS, Long.class);
+        return count == null ? 0 : count;
     }
 }
