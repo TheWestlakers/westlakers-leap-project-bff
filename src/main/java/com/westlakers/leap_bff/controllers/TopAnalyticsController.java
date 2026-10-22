@@ -1,7 +1,5 @@
 package com.westlakers.leap_bff.controllers;
 
-import java.util.List;
-
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.ModelAttribute;
@@ -9,7 +7,8 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import jakarta.validation.Valid;
-import com.westlakers.leap_bff.dtos.TopAnalyticsRequest;
+import com.westlakers.leap_bff.dtos.RankingPageDTO;
+import com.westlakers.leap_bff.dtos.RankingPageRequest;
 import com.westlakers.leap_bff.dtos.TopInstrumentDTO;
 import com.westlakers.leap_bff.dtos.TopInvestorDTO;
 import com.westlakers.leap_bff.services.TopAnalyticsService;
@@ -24,15 +23,15 @@ public class TopAnalyticsController {
         this.topAnalyticsService = topAnalyticsService;
     }
 
-    @GetMapping("/top-investors")
-    public ResponseEntity<List<TopInvestorDTO>> getTopInvestors(
-            @Valid @ModelAttribute TopAnalyticsRequest request) {
-        return ResponseEntity.ok(topAnalyticsService.getTopInvestors(request.getLimit()));
+    @GetMapping("/investor-rankings")
+    public ResponseEntity<RankingPageDTO<TopInvestorDTO>> getInvestorRankings(
+            @Valid @ModelAttribute RankingPageRequest request) {
+        return ResponseEntity.ok(topAnalyticsService.getInvestorRankings(request.getPage(), request.getSize()));
     }
 
-    @GetMapping("/top-instruments")
-    public ResponseEntity<List<TopInstrumentDTO>> getTopInstruments(
-            @Valid @ModelAttribute TopAnalyticsRequest request) {
-        return ResponseEntity.ok(topAnalyticsService.getTopInstruments(request.getLimit()));
+    @GetMapping("/instrument-rankings")
+    public ResponseEntity<RankingPageDTO<TopInstrumentDTO>> getInstrumentRankings(
+            @Valid @ModelAttribute RankingPageRequest request) {
+        return ResponseEntity.ok(topAnalyticsService.getInstrumentRankings(request.getPage(), request.getSize()));
     }
 }
