@@ -23,7 +23,10 @@ import com.westlakers.leap_bff.exceptions.ErrorCode;
 public class InstrumentService {
     private static final int SEARCH_LIMIT = 7;
     private static final long DEFAULT_MARKET_ID = 2L;
+    private static final long FOREX_MARKET_ID = 5L;
+    private static final long CRYPTO_MARKET_ID = 6L;
     private static final long EQUITY_ASSET_CLASS_ID = 1L;
+    private static final long FOREX_ASSET_CLASS_ID = 2L;
     private static final long CRYPTO_ASSET_CLASS_ID = 3L;
 
     private final InstrumentMapper instrumentMapper;
@@ -86,9 +89,14 @@ public class InstrumentService {
                     continue;
                 }
 
-                Instrument instrument = new Instrument(null, DEFAULT_MARKET_ID,
-                        "CRYPTOCURRENCY".equalsIgnoreCase(quote.path("quoteType").asText())
-                                ? CRYPTO_ASSET_CLASS_ID : EQUITY_ASSET_CLASS_ID,
+                String quoteType = quote.path("quoteType").asText();
+                boolean crypto = "CRYPTOCURRENCY".equalsIgnoreCase(quoteType);
+                boolean forex = "CURRENCY".equalsIgnoreCase(quoteType)
+                    || ticker.toUpperCase(Locale.ROOT).endsWith("=X");
+                Instrument instrument = new Instrument(
+                    null,
+                    crypto ? CRYPTO_MARKET_ID : forex ? FOREX_MARKET_ID : DEFAULT_MARKET_ID,
+                    crypto ? CRYPTO_ASSET_CLASS_ID : forex ? FOREX_ASSET_CLASS_ID : EQUITY_ASSET_CLASS_ID,
                         ticker, name);
                 if (instrumentMapper.createInstrument(instrument) > 0) {
                     populated.add(instrument);

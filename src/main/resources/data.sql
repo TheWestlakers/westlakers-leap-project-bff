@@ -36,6 +36,10 @@ INSERT INTO markets (market_id, market_name, market_code, timezone, open_time, c
 VALUES (3, 'London Stock Exchange', 'LSE', 'Europe/London', '08:00:00', '16:30:00');
 INSERT INTO markets (market_id, market_name, market_code, timezone, open_time, close_time) 
 VALUES (4, 'Tokyo Stock Exchange', 'TSE', 'Asia/Tokyo', '09:00:00', '15:00:00');
+INSERT INTO markets (market_id, market_name, market_code, timezone, open_time, close_time)
+VALUES (5, 'Foreign Exchange Market', 'FOREX', 'America/New_York', '17:00:00', '17:00:00');
+INSERT INTO markets (market_id, market_name, market_code, timezone, open_time, close_time)
+VALUES (6, 'Cryptocurrency Market', 'CRYPTO', 'UTC', '00:00:00', '00:00:00');
 
 
 
