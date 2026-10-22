@@ -19,14 +19,14 @@ cp .env.example .env
 Run commands from the `analytics` directory:
 
 ```bash
-# Load the last 30 days of trading volumes. This also prepares the
-# order-status lookup and staging status column when they are missing.
-cd analytics
-python main.py --pipeline trading_volumes --days-back 30
-
 # Run all pipelines
 python main.py
 
+# Run specific pipeline
+python main.py --pipeline trading_volumes --days-back 30
+python main.py --pipeline active_instruments --days-back 30
+python main.py --pipeline client_activity_trends --days-back 30
+python main.py --pipeline client_segment_analysis --days-back 30
 ```
 
 ## Pipelines
