@@ -7,6 +7,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import jakarta.validation.Valid;
+import com.westlakers.leap_bff.dtos.AllTimeAnalyticsSummaryDTO;
 import com.westlakers.leap_bff.dtos.RankingPageDTO;
 import com.westlakers.leap_bff.dtos.RankingPageRequest;
 import com.westlakers.leap_bff.dtos.TopInstrumentDTO;
@@ -33,5 +34,10 @@ public class TopAnalyticsController {
     public ResponseEntity<RankingPageDTO<TopInstrumentDTO>> getInstrumentRankings(
             @Valid @ModelAttribute RankingPageRequest request) {
         return ResponseEntity.ok(topAnalyticsService.getInstrumentRankings(request.getPage(), request.getSize()));
+    }
+
+    @GetMapping("/summary")
+    public ResponseEntity<AllTimeAnalyticsSummaryDTO> getAllTimeSummary() {
+        return ResponseEntity.ok(topAnalyticsService.getAllTimeSummary());
     }
 }

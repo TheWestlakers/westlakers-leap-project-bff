@@ -1,6 +1,7 @@
 package com.westlakers.leap_bff.services;
 
 import com.westlakers.leap_bff.dtos.RankingPageDTO;
+import com.westlakers.leap_bff.dtos.AllTimeAnalyticsSummaryDTO;
 import com.westlakers.leap_bff.dtos.TopInstrumentDTO;
 import com.westlakers.leap_bff.dtos.TopInvestorDTO;
 import com.westlakers.leap_bff.exceptions.ApiException;
@@ -98,6 +99,29 @@ class TopAnalyticsServiceTest {
 
         ApiException exception = assertThrows(ApiException.class,
                 () -> topAnalyticsService.getInstrumentRankings(0, 20));
+
+        assertEquals(ErrorCode.DATABASE_ERROR, exception.getErrorCode());
+    }
+
+    @Test
+    void testGetAllTimeSummary_ReturnsRepositorySummary() {
+        AllTimeAnalyticsSummaryDTO summary = new AllTimeAnalyticsSummaryDTO(
+                new BigDecimal("25.50"), 12L, new BigDecimal("3.25"), 8L, new BigDecimal("125000.00"));
+        when(topAnalyticsRepository.getAllTimeSummary()).thenReturn(summary);
+
+        AllTimeAnalyticsSummaryDTO result = topAnalyticsService.getAllTimeSummary();
+
+        assertSame(summary, result);
+        verify(topAnalyticsRepository).getAllTimeSummary();
+    }
+
+    @Test
+    void testGetAllTimeSummary_DatabaseError() {
+        when(topAnalyticsRepository.getAllTimeSummary())
+                .thenThrow(new DataAccessResourceFailureException("connection refused"));
+
+        ApiException exception = assertThrows(ApiException.class,
+                () -> topAnalyticsService.getAllTimeSummary());
 
         assertEquals(ErrorCode.DATABASE_ERROR, exception.getErrorCode());
     }
