@@ -6,6 +6,7 @@ import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Repository;
 
+import com.westlakers.leap_bff.dtos.AllTimeAnalyticsSummaryDTO;
 import com.westlakers.leap_bff.dtos.TopInstrumentDTO;
 import com.westlakers.leap_bff.dtos.TopInvestorDTO;
 
@@ -56,6 +57,29 @@ public class TopAnalyticsRepository {
     private static final String COUNT_INSTRUMENTS =
             "SELECT COUNT(*) FROM (SELECT 1 " + INSTRUMENTS_FROM_AND_GROUP_BY + ") grouped";
 
+        private static final String ALL_TIME_SUMMARY = """
+                        WITH executed_orders AS (
+                                SELECT stg.user_id,
+                                           stg.instrument_id,
+                                           stg.quantity,
+                                           stg.execution_price
+                                FROM stg_trading_volumes stg
+                                WHERE stg.executed_at IS NOT NULL
+                        ),
+                        client_instrument_counts AS (
+                                SELECT user_id, COUNT(DISTINCT instrument_id) AS instruments_count
+                                FROM executed_orders
+                                GROUP BY user_id
+                        )
+                        SELECT COALESCE(AVG(ABS(quantity)), 0) AS average_trade_size,
+                                   COUNT(DISTINCT instrument_id)::BIGINT AS instruments_traded,
+                                   COALESCE((SELECT AVG(instruments_count) FROM client_instrument_counts), 0)
+                                           AS average_instruments_per_active_client,
+                                   COUNT(DISTINCT user_id)::BIGINT AS operating_traders,
+                                   COALESCE(SUM(ABS(quantity * execution_price)), 0) AS total_absolute_funds_processed
+                        FROM executed_orders
+                        """;
+
     private final JdbcTemplate analyticsJdbcTemplate;
 
         public TopAnalyticsRepository(@Qualifier("analyticsJdbcTemplate") JdbcTemplate analyticsJdbcTemplate) {
@@ -101,4 +125,15 @@ public class TopAnalyticsRepository {
         Long count = analyticsJdbcTemplate.queryForObject(COUNT_INSTRUMENTS, Long.class);
         return count == null ? 0 : count;
     }
+
+    public AllTimeAnalyticsSummaryDTO getAllTimeSummary() {
+        return analyticsJdbcTemplate.queryForObject(
+                ALL_TIME_SUMMARY,
+                (resultSet, rowNum) -> new AllTimeAnalyticsSummaryDTO(
+                        resultSet.getBigDecimal("average_trade_size"),
+                        resultSet.getLong("instruments_traded"),
+                        resultSet.getBigDecimal("average_instruments_per_active_client"),
+                        resultSet.getLong("operating_traders"),
+                        resultSet.getBigDecimal("total_absolute_funds_processed")));
+        }
 }

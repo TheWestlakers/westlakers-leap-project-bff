@@ -7,6 +7,7 @@ import java.util.function.Supplier;
 import org.springframework.dao.DataAccessException;
 import org.springframework.stereotype.Service;
 
+import com.westlakers.leap_bff.dtos.AllTimeAnalyticsSummaryDTO;
 import com.westlakers.leap_bff.dtos.RankingPageDTO;
 import com.westlakers.leap_bff.dtos.TopInstrumentDTO;
 import com.westlakers.leap_bff.dtos.TopInvestorDTO;
@@ -45,6 +46,14 @@ public class TopAnalyticsService {
                     () -> topAnalyticsRepository.findTopInstruments(size, page * size));
         } catch (DataAccessException exception) {
             throw databaseException("Failed to retrieve instrument rankings", exception);
+        }
+    }
+
+    public AllTimeAnalyticsSummaryDTO getAllTimeSummary() {
+        try {
+            return topAnalyticsRepository.getAllTimeSummary();
+        } catch (DataAccessException exception) {
+            throw databaseException("Failed to retrieve all-time analytics summary", exception);
         }
     }
 
