@@ -42,7 +42,7 @@ public interface InstrumentMapper {
     @Delete("DELETE FROM instruments WHERE instrument_id = #{id}")
     int deleteInstrumentById(@Param("id") Long id);
 
-    @Insert("INSERT INTO instruments (market_id, asset_class_id, ticker, name) VALUES (#{marketId}, #{assetClassId}, #{ticker}, #{name})")
+    @Insert("INSERT INTO instruments (market_id, asset_class_id, ticker, name, yahoo_symbol) VALUES (#{marketId}, #{assetClassId}, #{ticker}, #{name}, #{ticker})")
     @Options(useGeneratedKeys = true, keyProperty = "instrumentId", keyColumn = "instrument_id")
     int createInstrument(Instrument instrument);
 }
