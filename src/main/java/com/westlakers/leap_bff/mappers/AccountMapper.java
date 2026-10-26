@@ -52,6 +52,9 @@ public interface AccountMapper {
             "account_status_id = #{accountStatusId}, settled_cash = #{settledCash} WHERE account_id = #{accountId}")
     int update(Account account);
 
+    @Update("UPDATE accounts SET account_status_id = #{accountStatusId} WHERE account_id = #{accountId}")
+    int updateStatus(@Param("accountId") Long accountId, @Param("accountStatusId") Long accountStatusId);
+
     @Delete("DELETE FROM accounts WHERE account_id = #{accountId}")
     int delete(Long accountId);
 }

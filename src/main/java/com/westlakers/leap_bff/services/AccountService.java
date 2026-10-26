@@ -150,6 +150,28 @@ public class AccountService {
     }
 
     @Transactional
+    public AccountDTO setTradingFrozen(Long accountId, boolean frozen) {
+        Account existingAccount = this.accountMapper.findById(accountId);
+        if (existingAccount == null) {
+            throw new ApiException(ErrorCode.ACCOUNT_NOT_FOUND, "Account not found with id: " + accountId);
+        }
+
+        String statusName = frozen ? "FROZEN" : "OPEN";
+        AccountStatus status = accountStatusMapper.findByStatusName(statusName);
+        if (status == null) {
+            throw new ApiException(ErrorCode.RESOURCE_NOT_FOUND, "Account status not found: " + statusName);
+        }
+
+        int result = this.accountMapper.updateStatus(accountId, status.getAccountStatusId());
+        if (result == 0) {
+            throw new ApiException(ErrorCode.UPDATE_FAILED, "Failed to update account with id: " + accountId);
+        }
+
+        Account updated = this.accountMapper.findById(accountId);
+        return AccountDTO.fromEntity(updated, status);
+    }
+
+    @Transactional
     public void deleteAccount(Long accountId) {
         // Verify account exists
         Account account = this.accountMapper.findById(accountId);
