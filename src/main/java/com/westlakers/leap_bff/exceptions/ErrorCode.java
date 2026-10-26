@@ -48,6 +48,7 @@ public enum ErrorCode {
 
     // External Service Errors (503)
     AI_ASSISTANT_UNAVAILABLE("ERR_050", HttpStatus.SERVICE_UNAVAILABLE, "AI assistant is unavailable"),
+    NEWS_UNAVAILABLE("ERR_051", HttpStatus.SERVICE_UNAVAILABLE, "News service is unavailable"),
 
     // Generic Error
     INTERNAL_SERVER_ERROR("ERR_999", HttpStatus.INTERNAL_SERVER_ERROR, "An internal server error occurred");
