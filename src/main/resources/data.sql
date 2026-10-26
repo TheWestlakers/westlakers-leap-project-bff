@@ -1,5 +1,6 @@
 INSERT INTO roles (role_id, role_name) VALUES (1, 'ADMIN');
 INSERT INTO roles (role_id, role_name) VALUES (2, 'USER');
+INSERT INTO roles (role_id, role_name) VALUES (3, 'ANALYST');
 
 -- Insert User Status (explicit IDs to ensure consistency)
 INSERT INTO user_status (user_status_id, status_name, description) VALUES (1, 'ONLINE', 'User account is active');
