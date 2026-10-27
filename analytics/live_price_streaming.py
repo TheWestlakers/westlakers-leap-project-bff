@@ -21,7 +21,6 @@ import asyncio
 import time
 import json
 import logging
-from logging.handlers import RotatingFileHandler
 from datetime import datetime
 from typing import List, Dict, Any, Optional, Set
 from pathlib import Path
@@ -35,11 +34,6 @@ logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
     handlers=[
-        RotatingFileHandler(
-            'live_price_streaming.log',
-            maxBytes=256 * 1024,
-            backupCount=1
-        ),
         logging.StreamHandler(sys.stdout)
     ]
 )
@@ -49,6 +43,8 @@ ACTIVE_TICKERS_SET = 'prices:tickers:active'
 WATCHLIST_TICKERS_SET = 'prices:tickers:watchlist'
 FOCUS_TICKERS_SET = 'prices:tickers:focus'
 FOCUS_LEASE_KEY_PREFIX = 'prices:focus:lease:'
+PRICE_STREAM_KEY = 'prices:stream'
+STREAM_HEARTBEAT_KEY = 'prices:streamer:heartbeat'
 
 
 class LivePriceStreamer:
@@ -59,10 +55,14 @@ class LivePriceStreamer:
         redis_host: str = 'localhost',
         redis_port: int = 6379,
         redis_db: int = 0,
+        redis_username: Optional[str] = None,
+        redis_password: Optional[str] = None,
+        redis_ssl: bool = False,
         tickers: Optional[List[str]] = None,
         polling_interval: float = 1.0,
         stagger_interval: float = 1.0,
-        focus_polling_interval: float = 1.0
+        focus_polling_interval: float = 1.0,
+        stream_maxlen: int = 100000
     ):
         """
         Initialize the live price streamer
@@ -78,9 +78,13 @@ class LivePriceStreamer:
         self.redis_host = redis_host
         self.redis_port = redis_port
         self.redis_db = redis_db
+        self.redis_username = redis_username
+        self.redis_password = redis_password
+        self.redis_ssl = redis_ssl
         self.polling_interval = polling_interval
         self.stagger_interval = stagger_interval
         self.focus_polling_interval = focus_polling_interval
+        self.stream_maxlen = max(1, stream_maxlen)
         self.tickers = tickers or ['AAPL', 'MSFT', 'GOOGL', 'AMZN', 'TSLA']
         self.watchlist_tickers: Set[str] = set(self.tickers)
         self.focused_tickers: Set[str] = set()
@@ -108,16 +112,30 @@ class LivePriceStreamer:
             bool: True if connection successful
         """
         try:
-            self.redis_client = redis.Redis(
-                host=self.redis_host,
-                port=self.redis_port,
-                db=self.redis_db,
-                decode_responses=True,
-                socket_keepalive=True
-            )
+            redis_options = {
+                'host': self.redis_host,
+                'port': self.redis_port,
+                'db': self.redis_db,
+                'decode_responses': True,
+                'socket_keepalive': True,
+                'socket_connect_timeout': 10,
+                'socket_timeout': 10,
+                'health_check_interval': 30,
+                'retry_on_timeout': True,
+                'ssl': self.redis_ssl
+            }
+            if self.redis_username:
+                redis_options['username'] = self.redis_username
+            if self.redis_password:
+                redis_options['password'] = self.redis_password
+
+            self.redis_client = redis.Redis(**redis_options)
             # Test connection
             self.redis_client.ping()
-            logger.info(f"Connected to Redis at {self.redis_host}:{self.redis_port}")
+            logger.info(
+                f"Connected to Redis at {self.redis_host}:{self.redis_port} "
+                f"(TLS: {self.redis_ssl})"
+            )
             return True
         except redis.ConnectionError as e:
             logger.error(f"Failed to connect to Redis: {e}")
@@ -368,14 +386,13 @@ class LivePriceStreamer:
             ticker = price_data['ticker']
             
             # Add to Redis stream (for streaming/historical data)
-            stream_key = 'prices:stream'
-            self.redis_client.xadd(stream_key, {
+            self.redis_client.xadd(PRICE_STREAM_KEY, {
                 'ticker': ticker,
                 'price': str(price_data.get('currentPrice', 'N/A')),
                 'change': str(price_data.get('change', 'N/A')),
                 'changePct': str(price_data.get('changePct', 'N/A')),
                 'timestamp': price_data['timestamp']
-            })
+            }, maxlen=self.stream_maxlen, approximate=True)
             
             # Update latest price cache (for quick lookups)
             latest_key = f'prices:latest:{ticker}'
@@ -401,6 +418,20 @@ class LivePriceStreamer:
             
         except Exception as e:
             logger.error(f"Error publishing to Redis: {e}")
+
+    def publish_heartbeat(self):
+        """Publish a short-lived heartbeat for container monitoring."""
+        if not self.redis_client:
+            return
+
+        try:
+            self.redis_client.set(
+                STREAM_HEARTBEAT_KEY,
+                datetime.now().isoformat(),
+                ex=max(30, int(self.polling_interval * 3))
+            )
+        except Exception as e:
+            logger.warning(f"Failed publishing streamer heartbeat: {e}")
     
     def poll_once(self):
         """
@@ -486,6 +517,7 @@ class LivePriceStreamer:
                 
                 logger.info(f"--- Cycle #{iteration} [Time: {datetime.now().strftime('%H:%M:%S')}] ---")
                 successful = self.poll_once()
+                self.publish_heartbeat()
                 logger.info(f"Successfully fetched {successful}/{len(self.tickers)} prices")
                 
                 # Calculate time until next cycle
@@ -522,8 +554,12 @@ def main():
     redis_host = os.getenv('REDIS_HOST', 'localhost')
     redis_port = int(os.getenv('REDIS_PORT', 6379))
     redis_db = int(os.getenv('REDIS_DB', 0))
+    redis_username = os.getenv('REDIS_USERNAME') or None
+    redis_password = os.getenv('REDIS_PASSWORD') or None
+    redis_ssl = os.getenv('REDIS_SSL', 'false').lower() in {'1', 'true', 'yes', 'on'}
     polling_interval = float(os.getenv('POLLING_INTERVAL', 1.0))
     stagger_interval = float(os.getenv('STAGGER_INTERVAL', 1.0))
+    stream_maxlen = int(os.getenv('STREAM_MAXLEN', 100000))
     
     # Custom tickers can be passed as comma-separated string
     tickers_str = os.getenv('TICKERS','AAPL,MSFT,GOOGL,AMZN,TSLA,MU')
@@ -544,9 +580,13 @@ def main():
         redis_host=redis_host,
         redis_port=redis_port,
         redis_db=redis_db,
+        redis_username=redis_username,
+        redis_password=redis_password,
+        redis_ssl=redis_ssl,
         tickers=tickers,
         polling_interval=polling_interval,
-        stagger_interval=stagger_interval
+        stagger_interval=stagger_interval,
+        stream_maxlen=stream_maxlen
     )
     
     streamer.run()
